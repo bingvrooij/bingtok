@@ -566,6 +566,14 @@ button{padding:10px;background:#fe2c55;color:#fff;border:none;border-radius:8px;
             self.send_json({'ok': True})
             return
 
+        if path == '/api/public-config/stop':
+            try:
+                os.remove(PUBLIC_CONFIG_PATH)
+            except Exception:
+                pass
+            self.send_json({'ok': True})
+            return
+
         if path == '/api/participant':
             body = json.loads(self.read_body())
             pid = save_participant(body)

@@ -627,6 +627,18 @@
     <button class="pill-btn outline sm" id="session-stop-btn" onclick="stopSession()">⏹ Stop sessie</button>
   </div>
 
+  <div id="publish-status-box" style="display:none;margin-top:16px;background:#1a1a1a;border-radius:12px;padding:16px 20px;width:100%;max-width:480px;display:none;flex-direction:column;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="width:8px;height:8px;background:#25d167;border-radius:50%;display:inline-block"></span>
+      <span style="font-size:.85rem;color:#eee">Actieve publieke test</span>
+    </div>
+    <div id="publish-status-info" style="font-size:.78rem;color:#666"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a href="/meedoen-admin" class="pill-btn sm" style="text-decoration:none;font-size:.8rem">📊 Ga naar admin</a>
+      <button class="pill-btn outline sm" style="font-size:.8rem;color:#fe2c55;border-color:#fe2c55" onclick="stopPublicTest()">⏹ Stop publieke test</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- SCREEN — Dashboard -->
@@ -3518,8 +3530,29 @@ document.addEventListener('keydown', e => {
     await bootMeedoenAdmin();
   } else if (MODE === 'publish') {
     showScreen('upload');
+    checkPublishStatus();
   }
 })();
+
+async function checkPublishStatus() {
+  try {
+    const r = await fetch('/api/public-config');
+    if (!r.ok) return;
+    const cfg = await r.json();
+    if (!cfg || !cfg.videos) return;
+    const box = document.getElementById('publish-status-box');
+    const info = document.getElementById('publish-status-info');
+    box.style.display = 'flex';
+    const at = cfg.publishedAt ? new Date(cfg.publishedAt).toLocaleString('nl-NL') : '—';
+    info.textContent = `${cfg.videos.length} video's · gepubliceerd op ${at}`;
+  } catch {}
+}
+
+async function stopPublicTest() {
+  if (!confirm('Publieke test stoppen? Deelnemers kunnen dan niet meer meedoen.')) return;
+  await fetch('/api/public-config/stop', { method: 'POST' });
+  document.getElementById('publish-status-box').style.display = 'none';
+}
 
 // ═══════════════════════════════════
 // MEEDOEN-ADMIN (publieke test dashboard)
