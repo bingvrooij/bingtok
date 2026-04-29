@@ -318,6 +318,105 @@ setInterval(() => location.reload(), 15000);
             self.end_headers()
             return
 
+        if path == '/meedoen-admin':
+            cookie_hdr = self.headers.get('Cookie', '')
+            authed = 'bingtok_auth=1' in cookie_hdr
+            if not authed:
+                # Show login form that redirects back here
+                body = b'''<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Meedoen Admin</title>
+<style>body{background:#111;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+form{display:flex;flex-direction:column;gap:12px;background:#1a1a1a;padding:32px;border-radius:12px;min-width:300px}
+h2{margin:0;color:#fe2c55}input{padding:10px;border-radius:8px;border:1px solid #333;background:#222;color:#eee;font-size:1rem}
+button{padding:10px;background:#fe2c55;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:700}
+</style></head><body>
+<form method="POST" action="/meedoen-admin-login">
+<h2>Meedoen Admin</h2>
+<input type="password" name="pw" placeholder="Wachtwoord" autofocus>
+<button type="submit">Inloggen</button>
+</form></body></html>'''
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            # Build meedoen admin page
+            participants = load_all_participants()
+            cfg = load_public_config()
+            pub_videos = cfg.get('videos', []) if cfg else []
+            pub_name   = cfg.get('testName', '—') if cfg else '—'
+            pub_at     = cfg.get('publishedAt', '—') if cfg else 'Niet gepubliceerd'
+            # Aggregate stats per video
+            video_agg = {}
+            for p in participants:
+                for vname, vs in (p.get('stats') or {}).items():
+                    if vname not in video_agg:
+                        video_agg[vname] = {'views':0,'watchSec':0,'likes':0,'saves':0,'shares':0,'comments':0,'deelnemers':0}
+                    a = video_agg[vname]
+                    a['deelnemers'] += 1
+                    a['views']    += vs.get('views', 0)
+                    a['watchSec'] += vs.get('watchSec') or vs.get('totalWatchSec') or 0
+                    a['likes']    += vs.get('likes', 0) if isinstance(vs.get('likes'), int) else len(vs.get('likes') or [])
+                    a['saves']    += vs.get('saves', 0) if isinstance(vs.get('saves'), int) else len(vs.get('saves') or [])
+                    a['shares']   += vs.get('shares', 0)
+                    a['comments'] += vs.get('comments', 0) if isinstance(vs.get('comments'), int) else len(vs.get('comments') or [])
+            # Participant rows
+            p_rows = ''
+            for p in sorted(participants, key=lambda x: x.get('savedAt',''), reverse=True):
+                completed = '✅' if p.get('completed') else '⏳'
+                p_rows += f'<tr><td>{p.get("name","—")}</td><td>{completed}</td><td>{p.get("savedAt","—")[:16].replace("T"," ")}</td><td>{len(p.get("stats") or {})} videos</td></tr>'
+            if not p_rows:
+                p_rows = '<tr><td colspan="4" style="color:#666;text-align:center;padding:20px">Nog geen deelnemers</td></tr>'
+            # Video stats rows
+            v_rows = ''
+            for vname, a in sorted(video_agg.items(), key=lambda x: -x[1]['watchSec']):
+                avg_watch = round(a['watchSec'] / a['deelnemers']) if a['deelnemers'] else 0
+                v_rows += f'<tr><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{vname}</td><td>{a["deelnemers"]}</td><td>{a["views"]}</td><td>{avg_watch}s</td><td>{a["likes"]}</td><td>{a["saves"]}</td><td>{a["shares"]}</td></tr>'
+            if not v_rows:
+                v_rows = '<tr><td colspan="7" style="color:#666;text-align:center;padding:20px">Nog geen data</td></tr>'
+            body = f'''<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Meedoen Admin</title>
+<meta http-equiv="refresh" content="30">
+<style>
+body{{background:#111;color:#eee;font-family:sans-serif;padding:28px;margin:0}}
+h2{{color:#fe2c55;margin:0 0 4px}}h3{{color:#aaa;font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;margin:24px 0 10px}}
+table{{width:100%;border-collapse:collapse;background:#1a1a1a;border-radius:12px;overflow:hidden;margin-bottom:24px}}
+th{{text-align:left;padding:10px 14px;background:#222;color:#888;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px}}
+td{{padding:10px 14px;border-top:1px solid #222;font-size:.88rem}}
+a{{color:#fe2c55;text-decoration:none}}.badge{{background:#222;padding:3px 8px;border-radius:6px;font-size:.78rem}}
+.meta{{color:#555;font-size:.78rem;margin-top:16px}}.flex{{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px}}
+.pill{{padding:8px 14px;border-radius:8px;font-size:.83rem;font-weight:600}}
+</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+  <div><h2>BingTok — Meedoen Admin</h2><div style="color:#555;font-size:.8rem">Publieke test · {len(participants)} deelnemers</div></div>
+  <div style="display:flex;gap:10px">
+    <a href="/api/participants/export" class="pill" style="background:#fe2c55;color:#fff">⬇ Download CSV</a>
+    <a href="/rooms" class="pill" style="background:#222;color:#aaa">Alle sessies</a>
+    <a href="/rooms-logout" class="pill" style="background:#222;color:#555">Uitloggen</a>
+  </div>
+</div>
+<div style="background:#1a1a1a;border-radius:12px;padding:16px 20px;margin-bottom:24px;display:flex;gap:32px;flex-wrap:wrap">
+  <div><div style="color:#555;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Test naam</div><div style="margin-top:4px">{pub_name}</div></div>
+  <div><div style="color:#555;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Gepubliceerd</div><div style="margin-top:4px">{pub_at[:16].replace("T"," ") if pub_at != "Niet gepubliceerd" else pub_at}</div></div>
+  <div><div style="color:#555;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Videos</div><div style="margin-top:4px">{len(pub_videos)}</div></div>
+  <div><div style="color:#555;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Publieke link</div><div style="margin-top:4px"><a href="/meedoen" target="_blank">/meedoen</a></div></div>
+</div>
+<h3>Video statistieken</h3>
+<table><thead><tr><th>Video</th><th>Deelnemers</th><th>Views</th><th>Gem. kijktijd</th><th>Likes</th><th>Saves</th><th>Shares</th></tr></thead>
+<tbody>{v_rows}</tbody></table>
+<h3>Deelnemers</h3>
+<table><thead><tr><th>Naam</th><th>Afgerond</th><th>Opgeslagen</th><th>Data</th></tr></thead>
+<tbody>{p_rows}</tbody></table>
+<p class="meta">Vernieuwt automatisch elke 30 seconden · <a href="/meedoen-admin">↺ Nu vernieuwen</a></p>
+</body></html>'''.encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         if path == '/api/public-config':
             cfg = load_public_config()
             if cfg:
@@ -488,6 +587,17 @@ setInterval(() => location.reload(), 15000);
     def do_POST(self):
         path = unquote(urlparse(self.path).path)
         room_id = self._room_id()
+
+        if path == '/meedoen-admin-login':
+            body = self.read_body().decode('utf-8', errors='replace')
+            from urllib.parse import parse_qs as _pqs
+            pw = _pqs(body).get('pw', [None])[0]
+            self.send_response(302)
+            self.send_header('Location', '/meedoen-admin')
+            if pw == 'BingTokAdmin!Fantasm':
+                self.send_header('Set-Cookie', 'bingtok_auth=1; Path=/; HttpOnly; SameSite=Strict')
+            self.end_headers()
+            return
 
         if path == '/api/public-config':
             body = json.loads(self.read_body())
