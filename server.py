@@ -168,6 +168,68 @@ class Handler(http.server.BaseHTTPRequestHandler):
                            'text/html; charset=utf-8')
             return
 
+        if path == '/rooms':
+            from urllib.parse import parse_qs
+            pw = parse_qs(urlparse(self.path).query).get('pw', [None])[0]
+            if pw != 'BingTokAdmin!Fantasm':
+                body = b'''<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>BingTok Rooms</title>
+<style>body{background:#111;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+form{display:flex;flex-direction:column;gap:12px;background:#1a1a1a;padding:32px;border-radius:12px;min-width:300px}
+h2{margin:0;color:#fe2c55}input{padding:10px;border-radius:8px;border:1px solid #333;background:#222;color:#eee;font-size:1rem}
+button{padding:10px;background:#fe2c55;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:700}
+.err{color:#fe2c55;font-size:.85rem}</style></head><body>
+<form method="GET" action="/rooms">
+<h2>BingTok Admin</h2>
+<input type="password" name="pw" placeholder="Wachtwoord" autofocus>
+<button type="submit">Inloggen</button>
+</form></body></html>'''
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            # Build rooms overview
+            base = _public_url or f'http://{local_ip()}:{PORT}'
+            rows = ''
+            for rid, room in _rooms.items():
+                cfg = room.get('config') or {}
+                name = cfg.get('sessionName') or cfg.get('testName') or '—'
+                nevents = len(room.get('events', []))
+                nclients = len(room.get('clients', []))
+                rows += f'''<tr>
+<td><code>{rid}</code></td>
+<td>{name}</td>
+<td>{nevents} events</td>
+<td>{"🟢 " + str(nclients) + " live" if nclients else "⚪ geen"}</td>
+<td><a href="{base}/admin?room={rid}" target="_blank">Admin</a> &nbsp;
+    <a href="{base}/test?room={rid}" target="_blank">Test</a></td>
+</tr>'''
+            if not rows:
+                rows = '<tr><td colspan="5" style="color:#666;text-align:center">Geen actieve sessies</td></tr>'
+            body = f'''<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>BingTok Rooms</title>
+<meta http-equiv="refresh" content="15">
+<style>body{{background:#111;color:#eee;font-family:sans-serif;padding:32px;margin:0}}
+h2{{color:#fe2c55;margin-top:0}}table{{width:100%;border-collapse:collapse;background:#1a1a1a;border-radius:12px;overflow:hidden}}
+th{{text-align:left;padding:12px 16px;background:#222;color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px}}
+td{{padding:12px 16px;border-top:1px solid #222;font-size:.9rem}}
+a{{color:#fe2c55;text-decoration:none}}code{{background:#222;padding:2px 6px;border-radius:4px;font-size:.85rem}}
+.meta{{color:#666;font-size:.8rem;margin-top:16px}}</style></head>
+<body>
+<h2>BingTok — Actieve Sessies</h2>
+<table><thead><tr><th>Room ID</th><th>Sessienaam</th><th>Events</th><th>Status</th><th>Links</th></tr></thead>
+<tbody>{rows}</tbody></table>
+<p class="meta">Vernieuwt automatisch elke 15 seconden · <a href="/rooms?pw=BingTokAdmin!Fantasm">↺ Nu vernieuwen</a></p>
+</body></html>'''.encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         if path == '/api/local-ip':
             self.send_json({'ip': local_ip(), 'port': PORT})
             return
