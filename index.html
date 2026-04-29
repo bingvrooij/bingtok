@@ -990,10 +990,8 @@ const MODE = location.pathname === '/test'          ? 'test'
            : 'setup';
 
 if (MODE === 'publish') {
-  document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('btn-publiceer');
-    if (btn) btn.style.display = '';
-  });
+  const btn = document.getElementById('btn-publiceer');
+  if (btn) btn.style.display = '';
 }
 
 
@@ -1389,7 +1387,7 @@ const fileInput = document.getElementById('file-input');
 const uploadBtn = document.getElementById('upload-next-btn');
 const fileCount = document.getElementById('file-count');
 
-if (MODE === 'setup') {
+if (MODE === 'setup' || MODE === 'publish') {
   dropZone.addEventListener('click', () => fileInput.click());
   dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
