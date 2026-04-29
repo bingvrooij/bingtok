@@ -802,7 +802,7 @@
 <div id="screen-waiting">
   <div class="logo">Bing<span>Tok</span></div>
   <div class="spinner"></div>
-  <p>Waiting for the researcher to set up the test…</p>
+  <p>Sessie wordt geladen, even geduld…</p>
 </div>
 
 <div id="screen-preload">
@@ -3524,12 +3524,15 @@ function clearSessionState() {
 
 async function boot() {
   if (MODE !== 'test') return;
-  showScreen('waiting');
+  // Try to get config immediately before showing any screen
   let config = null;
-  while (!config || !config.videos || !config.videos.length) {
-    try { config = await fetchConfig(); } catch {}
-    if (!config || !config.videos || !config.videos.length) {
+  try { config = await fetchConfig(); } catch {}
+  // Only show waiting screen if config isn't ready yet
+  if (!config || !config.videos || !config.videos.length) {
+    showScreen('waiting');
+    while (!config || !config.videos || !config.videos.length) {
       await new Promise(r => setTimeout(r, 2000));
+      try { config = await fetchConfig(); } catch {}
     }
   }
   testName = config.testName || '';
