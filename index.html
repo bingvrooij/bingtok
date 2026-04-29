@@ -856,7 +856,7 @@
       </div>
       <div id="ma-p-list" style="display:flex;flex-direction:column"></div>
     </div>
-    <p style="color:#333;font-size:.75rem;margin-top:16px;text-align:center">Vernieuwt niet automatisch · klik ↺ Vernieuwen voor nieuwe data</p>
+    <p style="color:#333;font-size:.75rem;margin-top:16px;text-align:center">Vernieuwt automatisch elke 30 seconden</p>
   </div>
 </div>
 
@@ -3612,6 +3612,7 @@ let _maParticipants = [];
 async function bootMeedoenAdmin() {
   showScreen('meedoen-admin');
   await meedoenAdminRefresh();
+  setInterval(meedoenAdminRefresh, 30000);
 }
 
 async function meedoenAdminRefresh() {
