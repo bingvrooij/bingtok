@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(kill 71151)",
+      "Bash(pkill -f \"server.py\\\\|python3 -c.*server\")",
+      "Bash(python3 -c \" import http.server, server srv = http.server.ThreadingHTTPServer\\(\\('0.0.0.0', 8888\\), server.Handler\\) srv.serve_forever\\(\\) \")",
+      "Bash(curl -s http://localhost:8888/)",
+      "Bash(awk 'NR>1{print $2}')",
+      "Bash(xargs kill *)",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s http://localhost:8888/api/sessions)",
+      "Bash(lsof -iTCP -sTCP:LISTEN -P)",
+      "Bash(awk '{print $2}')",
+      "Bash(ps *)",
+      "Bash(kill 75072 *)",
+      "Bash(kill 75464 75468)",
+      "Bash(python3 server.py)",
+      "Bash(lsof -iTCP:8080 -sTCP:LISTEN -P)",
+      "Bash(kill 75578)",
+      "Bash(pkill -f \"python3.*server\")",
+      "Bash(curl -s http://localhost:8888/api/config)",
+      "Bash(curl -s -X POST http://localhost:8888/api/config -H \"Content-Type: application/json\" -d '{\"testName\":\"test\"}')",
+      "Bash(kill 75796)",
+      "Bash(lsof -iTCP:8888 -sTCP:LISTEN -P)",
+      "Bash(ipconfig getifaddr *)",
+      "Bash(ffmpeg -version)",
+      "Bash(sort -k5 -rh)",
+      "Bash(brew list *)",
+      "Bash(/opt/homebrew/bin/brew --version)",
+      "Bash(/usr/local/bin/brew --version)",
+      "Bash(/opt/homebrew/bin/brew install *)",
+      "Bash(/opt/homebrew/bin/ffmpeg -version)",
+      "Bash(curl -s http://localhost:8888/api/presets)",
+      "Bash(open *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:8888/uploads/preset_BingTok_v1_filler-data_1-KOOK%20VIDEOPulled%20chicken%20wrap%20Snel%2C%20gezond%2C%20mega%20lekker!%20T7609333781027114273.mp4\")"
+    ]
+  }
+}

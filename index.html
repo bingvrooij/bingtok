@@ -1,0 +1,3608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>BingTok</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000; color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden; height: 100vh; width: 100vw;
+    }
+
+    /* ── shared ── */
+    .logo { font-size: 2.6rem; font-weight: 900; letter-spacing: -1px; }
+    .logo span { color: #fe2c55; }
+    .pill-btn {
+      background: #fe2c55; color: #fff; border: none; border-radius: 10px;
+      padding: 13px 36px; font-size: 1rem; font-weight: 700;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .pill-btn:hover { opacity: .85; }
+    .pill-btn:disabled { opacity: .35; cursor: default; }
+    .pill-btn.outline { background: transparent; border: 2px solid #fe2c55; color: #fe2c55; }
+    .pill-btn.ghost { background: rgba(255,255,255,.1); color: #fff; }
+    .pill-btn.sm { padding: 8px 18px; font-size: .82rem; }
+    .pill-btn.green { background: #25d167; }
+    .hint-text { color: #444; font-size: .8rem; }
+
+    /* ══════════════════════════════════
+       SCREEN 1 — Upload (setup only)
+    ══════════════════════════════════ */
+    #screen-upload {
+      position: fixed; inset: 0; background: #0e0e0e;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px; z-index: 100;
+    }
+    #drop-zone {
+      width: 400px; max-width: 92vw;
+      border: 2px dashed #333; border-radius: 16px;
+      padding: 40px 24px; text-align: center;
+      cursor: pointer; transition: border-color .2s, background .2s;
+    }
+    #drop-zone.drag-over { border-color: #fe2c55; background: rgba(254,44,85,.07); }
+    #drop-zone svg { opacity: .45; margin-bottom: 12px; }
+    #drop-zone p { color: #888; font-size: .9rem; line-height: 1.7; }
+    #drop-zone p strong { color: #fff; }
+    #file-input { display: none; }
+
+    #session-status-box {
+      display: flex; align-items: center; gap: 10px;
+      background: #161616; border: 1px solid #2a2a2a; border-radius: 10px;
+      padding: 10px 16px; font-size: .85rem; color: #ccc;
+      width: 400px; max-width: 92vw;
+    }
+    .session-status-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: #fe2c55; box-shadow: 0 0 6px #fe2c55; animation: pulse 1.2s infinite;
+    }
+    #session-status-text { flex: 1; }
+
+    #preset-box {
+      width: 400px; max-width: 92vw;
+      border: 1px solid #2a2a2a; border-radius: 12px;
+      overflow: hidden;
+    }
+    #preset-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; cursor: pointer; background: #161616;
+      font-size: .9rem; color: #ccc; user-select: none;
+    }
+    #preset-header:hover { background: #1e1e1e; }
+    #preset-body { padding: 12px; background: #111; display: flex; flex-direction: column; gap: 8px; }
+    .preset-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 14px; background: #1a1a1a; border-radius: 8px;
+      font-size: .88rem; color: #ccc;
+    }
+    .preset-item button { font-size: .78rem; padding: 4px 12px; }
+    .preset-counts { font-size: .75rem; color: #555; }
+
+    #server-status-box {
+      margin-top: 6px; display: flex; flex-direction: column;
+      align-items: center; gap: 10px;
+      background: #111; border: 1px solid #1e1e1e;
+      border-radius: 14px; padding: 14px 20px;
+      width: 400px; max-width: 92vw;
+    }
+    #server-status-indicator { display: flex; align-items: center; gap: 8px; font-size: .82rem; }
+    #server-status-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #333;
+      flex-shrink: 0; transition: background .3s;
+    }
+    #server-status-dot.online  { background: #25d167; box-shadow: 0 0 6px #25d167; }
+    #server-status-dot.active  { background: #fe2c55; box-shadow: 0 0 6px #fe2c55; animation: pulse 1.2s infinite; }
+    #server-status-dot.offline { background: #444; }
+    #server-session-info { display: flex; align-items: center; gap: 12px; width: 100%; justify-content: space-between; }
+    #server-session-name { font-size: .8rem; color: #aaa; }
+
+    /* ══════════════════════════════════
+       SCREEN — Dashboard
+    ══════════════════════════════════ */
+    #screen-dashboard { display: none; flex-direction: column; width: 100%; height: 100vh; background: #000; overflow-y: auto; }
+    #dash-drop-zone {
+      border: 2px dashed #333; border-radius: 14px;
+      padding: 30px 20px; text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s; position: relative;
+    }
+    #dash-drop-zone.drag-over { border-color: #25d167; background: rgba(37,209,103,.06); }
+    #dash-drop-zone svg { opacity: .4; margin-bottom: 10px; }
+    #dash-drop-zone p { color: #888; font-size: .85rem; line-height: 1.7; margin: 0; }
+    #dash-file-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .dash-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #1a1a1a; border: 1px solid #2a2a2a;
+      border-radius: 20px; padding: 4px 12px; font-size: .75rem; color: #ccc;
+    }
+    .dash-tag button { background: none; border: none; color: #555; cursor: pointer; font-size: .9rem; padding: 0; line-height: 1; }
+    .dash-tag button:hover { color: #fe2c55; }
+    .dash-summary-tile {
+      background: #111; border-radius: 12px; padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .dash-summary-tile .dst-label { font-size: .72rem; color: #555; text-transform: uppercase; letter-spacing: .4px; }
+    .dash-summary-tile .dst-value { font-size: 1.4rem; font-weight: 800; color: #fff; }
+    .dash-summary-tile .dst-sub { font-size: .72rem; color: #555; }
+    .dash-video-card:hover { border-color: #333; background: #141414; }
+
+    /* Filter / sort bar */
+    .dash-filter-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+    .dash-filter-bar input { background:#111; border:1px solid #2a2a2a; border-radius:8px; color:#fff; font-size:.82rem; padding:6px 12px; flex:1; min-width:140px; outline:none; }
+    .dash-filter-bar input:focus { border-color:#fe2c55; }
+    .dash-filter-bar select { background:#111; border:1px solid #2a2a2a; border-radius:8px; color:#fff; font-size:.82rem; padding:6px 10px; outline:none; cursor:pointer; }
+    .dash-filter-bar select:focus { border-color:#fe2c55; }
+    .dash-filter-bar label { font-size:.75rem; color:#555; white-space:nowrap; }
+    .dash-top-badge { display:inline-block; background:#fe2c55; color:#fff; font-size:.65rem; font-weight:700; border-radius:4px; padding:1px 5px; margin-left:5px; vertical-align:middle; }
+    .dash-video-card.top-performer { border-color:#fe2c55 !important; }
+
+    /* Dashboard detail modal */
+    #dash-detail-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:800; align-items:flex-start; justify-content:center; overflow-y:auto; padding:40px 20px; }
+    #dash-detail-modal.show { display:flex; }
+    #dash-detail-box { background:#111; border:1px solid #222; border-radius:20px; padding:28px; width:100%; max-width:600px; position:relative; }
+    #dash-detail-close { position:absolute; top:16px; right:16px; background:#1e1e1e; border:none; color:#888; font-size:1rem; width:32px; height:32px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    #dash-detail-close:hover { color:#fff; background:#2a2a2a; }
+    .ddd-video-title { font-size:1.1rem; font-weight:800; color:#fff; margin-bottom:2px; }
+    .ddd-section-title { font-size:.7rem; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+    .ddd-dropoff-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .ddd-tile { background:#0e0e0e; border-radius:10px; padding:10px 14px; flex:1; min-width:80px; text-align:center; }
+    .ddd-pct { font-size:1.3rem; font-weight:800; color:#fff; }
+    .ddd-lbl { font-size:.68rem; color:#555; margin-top:2px; }
+    .ddd-test-row { background:#0e0e0e; border-radius:12px; padding:14px; }
+    .ddd-test-name { font-size:.82rem; font-weight:700; color:#ccc; margin-bottom:6px; }
+    .ddd-test-stats { display:flex; gap:10px; flex-wrap:wrap; font-size:.78rem; color:#666; margin-bottom:8px; }
+    .ddd-test-stats .r { color:#fe2c55; }
+    .ddd-test-stats .g { color:#25d167; }
+    .ddd-comment { background:#0e0e0e; border-radius:8px; padding:8px 12px; font-size:.8rem; color:#bbb; margin-bottom:6px; }
+
+    /* ══════════════════════════════════
+       SCREEN 2 — Setup editor
+    ══════════════════════════════════ */
+    #screen-setup {
+      display: none; position: fixed; inset: 0;
+      background: #0e0e0e; overflow-y: auto; z-index: 100;
+    }
+    .setup-header {
+      position: sticky; top: 0; background: rgba(14,14,14,.95);
+      backdrop-filter: blur(10px); padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #1e1e1e; z-index: 10;
+    }
+    .setup-header h2 { font-size: 1.05rem; font-weight: 800; }
+    .setup-header h2 span { color: #fe2c55; }
+    .setup-header-actions { display: flex; gap: 10px; }
+    .setup-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; max-width: 860px; margin: 0 auto; }
+
+    .video-card { background: #161616; border: 1px solid #222; border-radius: 14px; overflow: hidden; }
+    .video-card-top { display: flex; gap: 14px; padding: 16px; align-items: flex-start; }
+    .thumb-wrap { flex-shrink: 0; width: 80px; height: 120px; background: #111; border-radius: 8px; overflow: hidden; position: relative; cursor: pointer; }
+    .thumb-wrap video { width: 100%; height: 100%; object-fit: cover; }
+    .thumb-wrap .play-badge { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); font-size: 1.4rem; }
+    .pfp-wrap { flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%; border: 2px solid #333; overflow: hidden; cursor: pointer; background: #1e1e1e; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; position: relative; }
+    .pfp-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .pfp-wrap .pfp-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; font-size: .65rem; text-align: center; color: #fff; }
+    .pfp-wrap:hover .pfp-overlay { display: flex; }
+    input.pfp-file { display: none; }
+    .card-fields { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+    .field-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .field-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
+    .field-group label { font-size: .72rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .field-group input, .field-group textarea { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 8px; color: #fff; padding: 9px 12px; font-size: .88rem; font-family: inherit; transition: border-color .15s; }
+    .field-group input:focus, .field-group textarea:focus { outline: none; border-color: #fe2c55; }
+    .field-group textarea { resize: none; height: 70px; }
+    .stats-row { display: flex; gap: 8px; padding: 12px 16px; background: #111; border-top: 1px solid #1e1e1e; flex-wrap: wrap; }
+    .stat-input-group { display: flex; align-items: center; gap: 6px; background: #1a1a1a; border: 1px solid #252525; border-radius: 8px; padding: 6px 10px; flex: 1; min-width: 90px; }
+    .stat-input-group .stat-ico { font-size: 1rem; }
+    .stat-input-group input { background: transparent; border: none; color: #fff; font-size: .85rem; font-weight: 700; width: 70px; font-family: inherit; }
+    .stat-input-group input:focus { outline: none; }
+    .stat-input-group .stat-lbl { font-size: .7rem; color: #555; }
+    .remove-btn { background: transparent; border: none; color: #555; font-size: .8rem; cursor: pointer; align-self: flex-start; margin-left: auto; padding: 4px 8px; border-radius: 6px; }
+    .remove-btn:hover { color: #fe2c55; background: rgba(254,44,85,.1); }
+
+    .section-label {
+      font-size: .7rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+      color: #555; display: flex; align-items: center; gap: 10px;
+    }
+    .section-label::after { content:''; flex:1; height:1px; background:#1e1e1e; }
+    .filler-add-bar {
+      display: flex; align-items: center; gap: 10px;
+      background: #161616; border: 1px dashed #2a2a2a; border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .filler-add-bar p { font-size: .82rem; color: #555; flex:1; }
+    .video-card.filler { border-color: #1e3a2a; background: #111a14; }
+    .collapsible-header {
+      display: flex; align-items: center; gap: 10px; cursor: pointer;
+      font-size: .7rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+      color: #555; user-select: none;
+    }
+    .collapsible-header::after { content:''; flex:1; height:1px; background:#1e1e1e; }
+    .collapsible-header .chevron { font-size: .8rem; transition: transform .2s; margin-left: 2px; }
+    .collapsible-header.open .chevron { transform: rotate(180deg); }
+    .collapsible-body { overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+    .collapsible-body.collapsed { display: none; }
+    .filler-badge { font-size: .65rem; font-weight: 700; background: #25d167; color: #000; border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+
+    /* ══════════════════════════════════
+       SCREEN 3 — Admin / Live Monitor
+    ══════════════════════════════════ */
+    #screen-admin {
+      display: none; position: fixed; inset: 0;
+      background: #0a0a0a; overflow-y: auto; z-index: 100;
+    }
+    .admin-header {
+      position: sticky; top: 0; background: rgba(10,10,10,.97);
+      backdrop-filter: blur(10px); padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #1e1e1e; z-index: 10;
+    }
+    .admin-header-left { display: flex; align-items: center; gap: 10px; }
+    .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; display: inline-block; }
+    .live-dot.active { background: #fe2c55; box-shadow: 0 0 0 3px rgba(254,44,85,.25); animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 3px rgba(254,44,85,.25); } 50% { box-shadow: 0 0 0 6px rgba(254,44,85,.1); } }
+    .admin-header h2 { font-size: 1rem; font-weight: 800; }
+    .admin-header h2 span { color: #fe2c55; }
+    .admin-header-actions { display: flex; gap: 10px; }
+
+    .admin-body { padding: 20px; max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+    /* share link box */
+    .share-box {
+      background: #161616; border: 1px solid #2a2a2a; border-radius: 14px;
+      padding: 20px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .share-box h3 { font-size: .85rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .5px; }
+    .share-url {
+      background: #0e0e0e; border: 1px solid #333; border-radius: 10px;
+      padding: 12px 16px; font-size: 1.1rem; font-weight: 700;
+      color: #fe2c55; font-family: monospace; letter-spacing: .5px;
+      word-break: break-all;
+    }
+    .share-status { font-size: .82rem; color: #555; display: flex; align-items: center; gap: 8px; }
+    .share-status .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; display: inline-block; }
+    .share-status .dot.connected { background: #25d167; }
+
+    /* now watching */
+    .session-tab { display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1px solid #2a2a2a;background:#111;color:#888;font-size:.75rem;cursor:pointer; }
+    .session-tab.active { border-color:#fe2c55;color:#fff;background:#1a0a0a; }
+    .session-tab-dot { width:6px;height:6px;border-radius:50%;background:#444;flex-shrink:0; }
+    .admin-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .admin-cols-3 { grid-template-columns: 1fr auto 1fr; }
+    @media (max-width: 800px) { .admin-cols-3 { grid-template-columns: 1fr; } }
+    @media (max-width: 640px) { .admin-cols { grid-template-columns: 1fr; } }
+
+    #admin-phone-frame {
+      position: relative; width: 160px; flex-shrink: 0;
+      aspect-ratio: 9/16; background: #0a0a0a;
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid #222;
+    }
+    #admin-phone-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    #admin-preview-placeholder {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px;
+      color: #444; font-size: .72rem; text-align: center;
+    }
+    #admin-preview-label {
+      position: absolute; bottom: 8px; left: 6px; right: 6px;
+      font-size: .65rem; color: rgba(255,255,255,.5);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-align: center;
+    }
+
+    .admin-card {
+      background: #161616; border: 1px solid #222; border-radius: 14px;
+      padding: 18px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .admin-card h3 { font-size: .78rem; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+
+    .now-watching-video { font-size: 1rem; font-weight: 700; color: #fff; }
+    .now-watching-video.empty { color: #444; font-style: italic; font-weight: 400; }
+    .watch-timer { font-size: 2rem; font-weight: 800; color: #fe2c55; font-variant-numeric: tabular-nums; }
+    .watch-timer.idle { color: #333; }
+
+    /* event log */
+    #admin-event-log {
+      display: flex; flex-direction: column; gap: 4px;
+      max-height: 260px; overflow-y: auto; font-size: .78rem;
+    }
+    #admin-event-log::-webkit-scrollbar { width: 4px; }
+    #admin-event-log::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+    .event-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 5px 0; border-bottom: 1px solid #1a1a1a;
+    }
+    .event-row:last-child { border: none; }
+    .event-time { color: #444; flex-shrink: 0; width: 54px; }
+    .event-pid  { font-size: .72rem; background: #2a2a2a; color: #fe2c55; border-radius: 4px; padding: 1px 5px; flex-shrink: 0; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .event-icon { flex-shrink: 0; }
+    .event-desc { color: #bbb; line-height: 1.4; }
+    .event-desc strong { color: #fff; }
+    .event-log-empty { color: #444; font-size: .8rem; text-align: center; padding: 20px 0; }
+
+    /* video stat cards in admin */
+    .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+    .admin-stat-card { background: #161616; border: 1px solid #222; border-radius: 10px; padding: 12px; }
+    .admin-stat-card.active { border-color: #fe2c55; }
+    .admin-stat-card h4 { font-size: .78rem; font-weight: 700; color: #aaa; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .admin-stat-row { display: flex; justify-content: space-between; font-size: .74rem; padding: 2px 0; }
+    .admin-stat-row .sl { color: #555; }
+    .admin-stat-row .sv { font-weight: 700; }
+    .dropoff-chart { margin-top: 8px; }
+    .dropoff-chart-label { font-size: .65rem; color: #555; margin-bottom: 3px; }
+    .dropoff-chart svg { display: block; width: 100%; height: 54px; overflow: visible; }
+    .dropoff-chart .dc-line { fill: none; stroke: #fe2c55; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .dropoff-chart .dc-fill { fill: rgba(254,44,85,.12); stroke: none; }
+    .dropoff-chart .dc-axis { stroke: #2a2a2a; stroke-width: 1; }
+    .dropoff-chart .dc-tick { font-size: .58rem; fill: #444; }
+    .sv.r { color: #fe2c55; } .sv.g { color: #25d167; }
+
+    /* ══════════════════════════════════
+       SCREEN 4 — Feed (phone test)
+    ══════════════════════════════════ */
+    #screen-feed {
+      display: none; height: 100vh; overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+    }
+    #screen-feed::-webkit-scrollbar { display: none; }
+    #screen-feed { -ms-overflow-style: none; scrollbar-width: none; }
+
+    #feed-nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; z-index: 50;
+      background: linear-gradient(to bottom, rgba(0,0,0,.55), transparent);
+    }
+    #feed-nav .nav-logo { font-size: 1.15rem; font-weight: 900; letter-spacing: -.5px; }
+    #feed-nav .nav-logo span { color: #fe2c55; }
+    #feed-nav .nav-tabs { display: flex; gap: 18px; }
+    #feed-nav .nav-tab { font-size: .9rem; color: rgba(255,255,255,.5); cursor: pointer; padding-bottom: 4px; }
+    #feed-nav .nav-tab.active { color: #fff; font-weight: 700; border-bottom: 2px solid #fff; }
+    #feed-nav .nav-actions { display: flex; gap: 8px; }
+    .nav-icon-btn { background: rgba(255,255,255,.1); border: none; border-radius: 50%; width: 34px; height: 34px; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: .9rem; }
+    .nav-icon-btn:hover { background: rgba(255,255,255,.2); }
+
+    .slide { height: 100vh; width: 100vw; scroll-snap-align: start; position: relative; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+
+    .end-slide { background: #0a0a0a; overflow-y: auto; }
+    .end-slide-inner { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 28px; width: 100%; max-width: 420px; text-align: center; }
+    .end-logo { font-size: 1.8rem; font-weight: 900; color: #fff; }
+    .end-logo span { color: #fe2c55; }
+    .end-slide h2 { font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0; }
+    .end-slide p { color: #666; font-size: .9rem; margin: 0; line-height: 1.6; }
+    .end-fav-title { font-size: .85rem; font-weight: 700; color: #aaa; margin-bottom: 4px; }
+    #end-fav-grid { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+    .end-fav-btn {
+      width: 100%; padding: 14px 18px; background: #161616;
+      border: 1px solid #2a2a2a; border-radius: 14px;
+      color: #ccc; font-size: .88rem; font-weight: 600;
+      cursor: pointer; text-align: left; transition: border-color .15s, background .15s;
+    }
+    .end-fav-btn:hover { background: #1e1e1e; }
+    .end-fav-btn.selected { border-color: #25d167; color: #25d167; background: rgba(37,209,103,.08); }
+    .slide video { width: 100%; height: 100%; object-fit: contain; cursor: pointer; }
+
+    .action-bar { position: absolute; right: 12px; bottom: 90px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+    .action-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .action-btn { width: 48px; height: 48px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .15s; font-size: 1.5rem; position: relative; background: transparent; }
+    .action-btn:active { transform: scale(.9); }
+    .action-count { font-size: .75rem; color: #fff; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+    .action-pfp { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #fff; overflow: hidden; margin-bottom: 4px; background: #222; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+    .action-pfp img { width: 100%; height: 100%; object-fit: cover; }
+    .follow-dot { width: 20px; height: 20px; border-radius: 50%; background: #fe2c55; border: 2px solid #000; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; font-size: .7rem; color: #fff; font-weight: 900; cursor: pointer; }
+
+    .slide-info { position: absolute; left: 14px; bottom: 20px; right: 80px; }
+    .slide-username { font-size: .95rem; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .slide-username .verified { font-size: .75rem; background: #20d5ec; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: #000; font-weight: 900; }
+    .slide-desc { font-size: .85rem; color: rgba(255,255,255,.85); line-height: 1.45; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .slide-desc.expanded { -webkit-line-clamp: unset; overflow: visible; }
+    .more-btn { font-size: .8rem; cursor: pointer; background: none; border: none; color: #ccc; }
+    .slide-tags { font-size: .82rem; color: #fff; }
+    .music-bar { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: .75rem; color: rgba(255,255,255,.7); }
+    .music-disc { width: 18px; height: 18px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; font-size: .6rem; animation: spin 3s linear infinite; animation-play-state: paused; }
+    .slide.playing .music-disc { animation-play-state: running; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes heartBurst { 0% { transform: translate(-50%,-50%) scale(0); opacity:1; } 50% { transform: translate(-50%,-50%) scale(1.3); opacity:1; } 100% { transform: translate(-50%,-70%) scale(1); opacity:0; } }
+
+    .progress-wrap { position: absolute; bottom: 80px; left: 0; right: 0; height: 44px; cursor: pointer; display: flex; align-items: center; touch-action: none; }
+    .progress-track { position: relative; width: 100%; height: 4px; background: rgba(255,255,255,.25); transition: height .15s; border-radius: 4px; }
+    .progress-wrap.scrubbing .progress-track { height: 6px; }
+    .progress-thumb { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 20px; height: 20px; border-radius: 50%; background: #fff; pointer-events: none; box-shadow: 0 1px 6px rgba(0,0,0,.5); }
+    .progress-bar { border-radius: 4px; }
+    .progress-track { width: 100%; height: 4px; background: rgba(255,255,255,.2); border-radius: 2px; position: relative; }
+    .progress-bar { height: 100%; background: rgba(255,255,255,.85); border-radius: 2px; width: 0%; pointer-events: none; transition: width .1s linear; }
+    .progress-thumb { position: absolute; top: 50%; right: 0; transform: translate(50%, -50%); width: 12px; height: 12px; background: #fff; border-radius: 50%; pointer-events: none; margin-left: -6px; }
+
+    .play-flash { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0; transition: opacity .15s; }
+    .play-flash.show { opacity: 1; }
+    .play-flash-icon { background: rgba(0,0,0,.45); border-radius: 50%; width: 66px; height: 66px; display: flex; align-items: center; justify-content: center; }
+
+    #mute-badge { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,.7); border-radius: 50%; width: 76px; height: 76px; display: flex; align-items: center; justify-content: center; font-size: 2rem; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 200; }
+
+    /* comment drawer */
+    #comment-drawer { position: fixed; inset: 0; z-index: 300; display: none; flex-direction: column; justify-content: flex-end; }
+    #comment-drawer.show { display: flex; }
+    .drawer-bg { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+    .drawer-box { position: relative; background: #1a1a1a; border-radius: 16px 16px 0 0; padding: 20px 20px 30px; max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .drawer-title { font-size: .95rem; font-weight: 700; text-align: center; margin-bottom: 4px; }
+    .drawer-input-row { display: flex; gap: 10px; margin-top: 6px; }
+    .drawer-input-row input { flex: 1; background: #2a2a2a; border: 1px solid #333; border-radius: 20px; color: #fff; padding: 10px 16px; font-size: .9rem; font-family: inherit; }
+    .drawer-input-row input:focus { outline: none; border-color: #fe2c55; }
+    .drawer-send { background: #fe2c55; border: none; border-radius: 50%; width: 40px; height: 40px; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+
+    /* waiting screen */
+    #screen-waiting { position: fixed; inset: 0; background: #0e0e0e; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 100; }
+    #screen-waiting p { color: #666; font-size: .9rem; }
+
+    /* ── Preload screen ── */
+    #screen-preload { position: fixed; inset: 0; background: #0e0e0e; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 100; }
+    #screen-preload .logo { font-size: 2.6rem; font-weight: 900; letter-spacing: -1px; }
+    #screen-preload .logo span { color: #fe2c55; }
+    #preload-bar-wrap { width: 280px; height: 6px; background: #222; border-radius: 99px; overflow: hidden; }
+    #preload-bar { height: 100%; width: 0%; background: #fe2c55; border-radius: 99px; transition: width .3s; }
+    #preload-label { color: #666; font-size: .85rem; }
+
+    /* ── Participant info screen ── */
+    #screen-participant {
+      position: fixed; inset: 0; background: #0e0e0e;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 0; z-index: 100; padding: 32px 24px;
+      overflow-y: auto;
+    }
+    .participant-form {
+      width: 100%; max-width: 400px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .participant-form .logo { margin-bottom: 8px; }
+    .participant-form h2 { font-size: 1.1rem; font-weight: 700; color: #ccc; margin-bottom: 4px; }
+    .participant-form p { font-size: .82rem; color: #555; line-height: 1.5; }
+    .p-field { display: flex; flex-direction: column; gap: 6px; }
+    .p-field label { font-size: .72rem; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+    .p-field input {
+      background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px;
+      color: #fff; padding: 13px 14px; font-size: 1rem; font-family: inherit;
+      transition: border-color .15s;
+    }
+    .p-field input:focus { outline: none; border-color: #fe2c55; }
+    .gender-options { display: flex; gap: 10px; flex-wrap: wrap; }
+    .gender-btn {
+      flex: 1; min-width: 100px;
+      background: #1a1a1a; border: 2px solid #2a2a2a; border-radius: 10px;
+      color: #888; padding: 12px 8px; font-size: .9rem; font-weight: 600;
+      cursor: pointer; transition: all .15s; text-align: center;
+    }
+    .gender-btn.selected { border-color: #fe2c55; color: #fff; background: rgba(254,44,85,.1); }
+    .participant-submit {
+      background: #fe2c55; color: #fff; border: none; border-radius: 10px;
+      padding: 15px; font-size: 1rem; font-weight: 700; cursor: pointer;
+      transition: opacity .15s; width: 100%;
+    }
+    .participant-submit:hover { opacity: .85; }
+    .participant-submit:disabled { opacity: .35; cursor: default; }
+    .spinner { width: 36px; height: 36px; border: 3px solid #222; border-top-color: #fe2c55; border-radius: 50%; animation: spin .8s linear infinite; }
+
+    /* stats panel */
+    #stats-panel { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.93); z-index: 400; overflow-y: auto; padding: 24px 20px 48px; }
+    .stats-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .stats-header h2 { font-size: 1.3rem; font-weight: 800; }
+    .stats-header h2 span { color: #fe2c55; }
+    .close-btn { background: rgba(255,255,255,.1); border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .close-btn:hover { background: rgba(255,255,255,.2); }
+    .stats-actions { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+    .export-btn { background: #fe2c55; color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: .82rem; font-weight: 700; cursor: pointer; }
+    .clear-btn { background: rgba(255,255,255,.1); color: #aaa; border: none; border-radius: 8px; padding: 8px 18px; font-size: .82rem; cursor: pointer; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .stat-card { background: #161616; border: 1px solid #222; border-radius: 12px; padding: 14px; }
+    .stat-card h3 { font-size: .82rem; font-weight: 700; color: #ddd; margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1e1e1e; font-size: .78rem; }
+    .stat-row:last-child { border: none; }
+    .slbl { color: #666; } .sval { font-weight: 700; }
+    .sval.r { color: #fe2c55; } .sval.g { color: #25d167; } .sval.y { color: #ffd60a; }
+    .stat-events { margin-top: 6px; font-size: .7rem; color: #555; max-height: 72px; overflow-y: auto; }
+    .stat-event { padding: 2px 0; border-bottom: 1px solid #1c1c1c; }
+    .no-stats { text-align: center; color: #444; padding: 60px 20px; }
+
+    #key-hint { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.07); border-radius: 20px; padding: 5px 14px; font-size: .72rem; color: #777; z-index: 50; pointer-events: none; transition: opacity 1s; }
+
+    /* modals */
+    #test-name-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 500; align-items: center; justify-content: center; }
+    #test-name-modal.show { display: flex; }
+    #edit-account-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.82); z-index: 700; align-items: center; justify-content: center; }
+    #edit-account-modal.show { display: flex; }
+    .edit-pfp-btn { width: 72px; height: 72px; border-radius: 50%; background: #222; border: 2px dashed #444; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; cursor: pointer; position: relative; overflow: hidden; flex-shrink: 0; align-self: center; }
+    .edit-pfp-btn img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+    .edit-pfp-btn span { position: relative; z-index: 1; }
+    .edit-pfp-btn .pfp-edit-badge { position: absolute; bottom: 0; inset-inline: 0; background: rgba(0,0,0,.55); font-size: .6rem; color: #fff; text-align: center; padding: 3px 0; z-index: 2; }
+    .modal-input.textarea { resize: none; min-height: 72px; }
+    .modal-box { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 18px; padding: 28px 28px 24px; width: 360px; max-width: 92vw; display: flex; flex-direction: column; gap: 16px; }
+    .modal-box h3 { font-size: 1.1rem; font-weight: 800; }
+    .modal-box h3 span { color: #fe2c55; }
+    .modal-box p { font-size: .82rem; color: #777; line-height: 1.5; }
+    .modal-input { background: #222; border: 1px solid #333; border-radius: 10px; color: #fff; padding: 12px 14px; font-size: .95rem; font-family: inherit; width: 100%; transition: border-color .15s; }
+    .modal-input:focus { outline: none; border-color: #fe2c55; }
+    .modal-actions { display: flex; gap: 10px; }
+
+    .slide.buffering::after { content: ''; position: absolute; top: 50%; left: 50%; width: 36px; height: 36px; margin: -18px 0 0 -18px; border: 3px solid rgba(255,255,255,.2); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; z-index: 5; pointer-events: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .vid-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: .85rem; color: #aaa; text-align: center; padding: 20px; z-index: 5; }
+    #complete-btn { position: fixed; bottom: 24px; right: 16px; background: #fe2c55; color: #fff; border: none; border-radius: 24px; padding: 11px 20px; font-size: .82rem; font-weight: 700; cursor: pointer; z-index: 60; box-shadow: 0 4px 20px rgba(254,44,85,.4); transition: opacity .15s, transform .15s; display: none; }
+    #complete-btn:hover { opacity: .88; transform: scale(1.04); }
+    @media (max-width: 768px) { #complete-btn { display: none !important; } }
+    @media (max-width: 768px) { .nav-icon-btn[onclick*="openStats"] { display: none !important; } }
+
+    /* ── Share Popup ── */
+    /* Profile overlay */
+    #profile-overlay { display: none; position: fixed; inset: 0; z-index: 600; background: #000; flex-direction: column; overflow-y: auto; transform: translateX(100%); }
+    #profile-overlay.show { display: flex; animation: slideInFromRight .25s ease forwards; }
+    @keyframes slideInFromRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .profile-back-btn { position: absolute; top: 14px; left: 14px; background: rgba(255,255,255,.1); border: none; border-radius: 50%; width: 38px; height: 38px; color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; }
+    .profile-header { padding: 60px 20px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .profile-avatar-ring { width: 96px; height: 96px; border-radius: 50%; padding: 3px; background: linear-gradient(135deg, #25f4ee, #fe2c55); flex-shrink: 0; }
+    .profile-avatar-inner { width: 100%; height: 100%; border-radius: 50%; background: #222; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
+    .profile-avatar-inner img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-display-name { font-size: 1.15rem; font-weight: 800; color: #fff; text-align: center; }
+    .profile-handle { font-size: .85rem; color: #888; }
+    .profile-stats-row { display: flex; gap: 28px; margin: 4px 0; }
+    .profile-stat { display: flex; flex-direction: column; align-items: center; }
+    .profile-stat .psn { font-size: 1.05rem; font-weight: 800; color: #fff; }
+    .profile-stat .psl { font-size: .72rem; color: #888; }
+    .profile-actions { display: flex; gap: 10px; margin: 6px 0; }
+    .profile-follow-btn { background: #fe2c55; color: #fff; border: none; border-radius: 6px; padding: 8px 36px; font-size: .9rem; font-weight: 700; cursor: pointer; }
+    .profile-msg-btn { background: transparent; color: #fff; border: 1.5px solid #333; border-radius: 6px; padding: 8px 14px; font-size: .9rem; cursor: pointer; }
+    .profile-bio { color: #ddd; font-size: .82rem; text-align: center; max-width: 300px; line-height: 1.4; }
+    .profile-tabs { display: flex; border-bottom: 1px solid #222; width: 100%; }
+    .profile-tab { flex: 1; padding: 12px 0; text-align: center; font-size: .8rem; color: #888; border-bottom: 2px solid transparent; cursor: pointer; }
+    .profile-tab.active { color: #fff; border-bottom-color: #fff; }
+    .profile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; }
+    .profile-grid-item { aspect-ratio: 9/16; background: #1a1a1a; position: relative; overflow: hidden; }
+    .profile-grid-item video { width: 100%; height: 100%; object-fit: cover; }
+    .profile-grid-label { position: absolute; bottom: 4px; left: 4px; color: #fff; font-size: .68rem; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+    .profile-pinned-badge { position: absolute; top: 4px; left: 4px; background: #fe2c55; color: #fff; font-size: .6rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+
+    #share-popup { display: none; position: fixed; inset: 0; z-index: 500; align-items: flex-end; justify-content: center; }
+    #share-popup.show { display: flex; }
+    .share-popup-bg { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+    .share-popup-box { position: relative; background: #1c1c1c; border-radius: 20px 20px 0 0; padding: 20px 20px 36px; width: 100%; max-width: 540px; display: flex; flex-direction: column; gap: 14px; }
+    .share-popup-title { font-size: .95rem; font-weight: 700; text-align: center; color: #ccc; }
+    .share-friend-btn { display: flex; align-items: center; gap: 14px; background: #2a2a2a; border: none; border-radius: 14px; padding: 14px 16px; cursor: pointer; width: 100%; color: #fff; transition: background .15s; }
+    .share-friend-btn:hover { background: #333; }
+    .share-friend-avatar { width: 46px; height: 46px; border-radius: 50%; background: linear-gradient(135deg,#fe2c55,#ff6b35); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+    .share-friend-info { text-align: left; }
+    .share-friend-name { font-size: .95rem; font-weight: 700; }
+    .share-friend-sub { font-size: .75rem; color: #777; margin-top: 2px; }
+    .share-cancel-btn { background: #2a2a2a; border: none; border-radius: 12px; color: #888; padding: 13px; font-size: .9rem; cursor: pointer; width: 100%; }
+
+    #save-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.82); z-index: 500; align-items: center; justify-content: center; }
+    #save-modal.show { display: flex; }
+    .save-box { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 18px; padding: 28px; width: 400px; max-width: 94vw; display: flex; flex-direction: column; gap: 14px; }
+    .save-box h3 { font-size: 1.1rem; font-weight: 800; }
+    .save-box h3 span { color: #25d167; }
+    .save-summary { background: #111; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .save-row { display: flex; justify-content: space-between; font-size: .82rem; }
+    .save-row .slbl { color: #666; } .save-row .sval { font-weight: 700; }
+    .save-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+
+<!-- SCREEN 1 — Upload -->
+<div id="screen-upload">
+  <div class="logo">Bing<span>Tok</span></div>
+
+  <!-- Preset loader -->
+  <div id="preset-box">
+    <div id="preset-header" onclick="togglePresetBox()">
+      <span>📁 Load preset</span>
+      <span id="preset-chevron">▾</span>
+    </div>
+    <div id="preset-body" style="display:none">
+      <div id="preset-list"><span style="color:#555;font-size:.85rem">Laden…</span></div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;width:100%;max-width:480px;margin:8px 0">
+    <div style="flex:1;height:1px;background:#222"></div>
+    <span style="color:#444;font-size:.8rem">of upload handmatig</span>
+    <div style="flex:1;height:1px;background:#222"></div>
+  </div>
+
+  <div id="drop-zone">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+      <rect x="2" y="2" width="20" height="20" rx="3"/>
+      <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/>
+    </svg>
+    <p><strong>Drag &amp; drop your videos here</strong><br>or click to browse — multiple OK</p>
+  </div>
+  <input type="file" id="file-input" accept="video/*" multiple />
+  <button class="pill-btn" id="upload-next-btn" disabled>Next: Configure videos →</button>
+  <span class="hint-text" id="file-count">No videos selected</span>
+  <button class="pill-btn outline" style="margin-top:10px" onclick="showScreen('dashboard')">📊 Open resultaten dashboard</button>
+
+  <div id="session-status-box" style="display:none">
+    <span class="session-status-dot"></span>
+    <span id="session-status-text"></span>
+    <button class="pill-btn outline sm" id="session-stop-btn" onclick="stopSession()">⏹ Stop sessie</button>
+  </div>
+
+</div>
+
+<!-- SCREEN — Dashboard -->
+<div id="screen-dashboard">
+  <div class="admin-header">
+    <div class="admin-header-left">
+      <h2>Bing<span>Tok</span> — Resultaten Dashboard</h2>
+    </div>
+    <div class="admin-header-actions">
+      <button class="pill-btn outline sm" onclick="showScreen('upload')">← Terug</button>
+    </div>
+  </div>
+  <div class="admin-body">
+    <div class="admin-card">
+      <h3>Sessie-bestanden importeren</h3>
+      <p style="font-size:.8rem;color:#666;margin:0 0 14px">Sleep hier je JSON-bestanden naartoe, of klik om te bladeren. Je kunt meerdere bestanden van verschillende tests tegelijk laden.</p>
+      <div id="dash-drop-zone">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Sleep JSON-bestanden hier<br><span style="color:#555">of klik om te bladeren</span></p>
+        <input type="file" id="dash-file-input" accept=".json" multiple>
+      </div>
+      <div id="dash-loaded-list" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px"></div>
+    </div>
+
+    <div id="dash-summary-card" class="admin-card" style="display:none">
+      <h3>Overzicht</h3>
+      <div id="dash-summary-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px"></div>
+    </div>
+
+    <div id="dash-videos-card" class="admin-card" style="display:none">
+      <h3>Per video</h3>
+      <div class="dash-filter-bar">
+        <input type="text" id="dash-filter-search" placeholder="🔍 Zoek op naam…" oninput="renderDashVideos()">
+        <select id="dash-filter-sort" onchange="renderDashVideos()">
+          <option value="scrollstop">↓ Scroll-stop %</option>
+          <option value="completion">↓ Completion %</option>
+          <option value="watchtime">↓ Gem. kijktijd</option>
+          <option value="likes">↓ Likes</option>
+          <option value="saves">↓ Saves</option>
+          <option value="comments">↓ Comments</option>
+          <option value="shares">↓ Shares</option>
+          <option value="views">↓ Views</option>
+        </select>
+        <select id="dash-filter-type" onchange="renderDashVideos()">
+          <option value="all">Alle video's</option>
+          <option value="test">Alleen testvideo's</option>
+          <option value="filler">Alleen fillers</option>
+        </select>
+        <label id="dash-filter-count" style="color:#444"></label>
+      </div>
+      <div class="admin-stats-grid" id="dash-video-grid"></div>
+    </div>
+
+    <div id="dash-empty" style="text-align:center;padding:60px 20px;color:#444;font-size:.9rem">
+      Nog geen bestanden geladen — importeer je sessie-JSONs hierboven.
+    </div>
+  </div>
+</div>
+
+<!-- Dashboard detail modal -->
+<div id="dash-detail-modal">
+  <div id="dash-detail-box">
+    <button id="dash-detail-close" onclick="closeDashDetail()">✕</button>
+    <div id="dash-detail-body"></div>
+  </div>
+</div>
+
+<!-- SCREEN 2 — Setup / Editor -->
+<div id="screen-setup">
+  <div class="setup-header">
+    <h2>Bing<span>Tok</span> — Configure Test</h2>
+    <div class="setup-header-actions">
+      <button class="pill-btn outline sm" onclick="goToUpload()">← Back</button>
+      <button class="pill-btn sm" onclick="startTest()">▶ Start Test</button>
+    </div>
+  </div>
+  <div class="setup-body" id="setup-cards"></div>
+</div>
+
+<!-- SCREEN 3 — Admin / Live Monitor -->
+<div id="screen-admin">
+  <div class="admin-header">
+    <div class="admin-header-left">
+      <span class="live-dot" id="live-dot"></span>
+      <h2>Bing<span>Tok</span> — Live Monitor</h2>
+    </div>
+    <div class="admin-header-actions">
+      <button class="pill-btn outline sm" onclick="goToUpload()">← Home</button>
+      <button class="pill-btn outline sm" onclick="goToSetup()">✎ Edit</button>
+      <button class="pill-btn sm" style="background:#ff6b35" onclick="endSession()">⏹ End Session</button>
+      <button class="pill-btn sm green" onclick="endTestAndDownloadAll()">⬇ Download rapport</button>
+    </div>
+  </div>
+  <div class="admin-body">
+    <!-- Share link -->
+    <div class="share-box">
+      <h3>Phone link</h3>
+      <div class="share-url" id="admin-share-url">loading…</div>
+      <div class="share-status">
+        <span class="dot" id="status-dot"></span>
+        <span id="status-text">Waiting for participant to open the link…</span>
+      </div>
+      <div id="participant-info" style="display:none;margin-top:8px;padding:10px 14px;background:#0e0e0e;border-radius:10px;font-size:.82rem;color:#ccc;line-height:1.8;">
+        <strong style="color:#fff">👤 Deelnemer</strong><br>
+        <span id="p-info-text"></span>
+      </div>
+    </div>
+
+    <!-- Now watching + live preview + events -->
+    <div class="admin-cols admin-cols-3">
+      <div class="admin-card">
+        <h3>Now watching</h3>
+        <div class="now-watching-video empty" id="admin-current-video">No video yet</div>
+        <div class="watch-timer idle" id="admin-watch-timer">—</div>
+      </div>
+      <!-- Live phone preview -->
+      <div class="admin-card" style="display:flex;flex-direction:column;align-items:center">
+        <h3>Live preview telefoon</h3>
+        <div id="admin-phone-frame">
+          <video id="admin-preview-video" muted playsinline></video>
+          <div id="admin-preview-placeholder">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".3"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="18" r="1"/></svg>
+            <span>Wacht op deelnemer…</span>
+          </div>
+          <div id="admin-preview-label"></div>
+        </div>
+      </div>
+      <div class="admin-card">
+        <h3>Live events</h3>
+        <div id="admin-event-log"><div class="event-log-empty">Waiting for activity…</div></div>
+      </div>
+    </div>
+
+    <!-- Per-video stats -->
+    <div class="admin-card">
+      <h3>Video stats</h3>
+      <div class="admin-stats-grid" id="admin-stats-grid"><div style="color:#444;font-size:.8rem">No data yet</div></div>
+    </div>
+
+    <!-- Merge sessions -->
+    <div class="admin-card" id="merge-card">
+      <h3>Sessies samenvoegen</h3>
+      <p style="font-size:.8rem;color:#666;margin:0 0 12px">Sla na elke test een sessie-JSON op. Importeer meerdere JSONs hier om de retention curves samen te voegen.</p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <label class="pill-btn outline sm" style="cursor:pointer">
+          📂 Importeer sessie-JSONs
+          <input type="file" id="merge-file-input" accept=".json" multiple style="display:none" onchange="loadMergeFiles(this)">
+        </label>
+        <button class="pill-btn outline sm" onclick="clearMerged()" id="merge-clear-btn" style="display:none">✕ Wis samenvoeging</button>
+      </div>
+      <div id="merge-status" style="font-size:.78rem;color:#666;margin-bottom:10px"></div>
+      <div class="admin-stats-grid" id="merge-stats-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 4 — Feed (phone) -->
+<div id="screen-feed">
+  <div id="feed-nav">
+    <div class="nav-logo">Bing<span>Tok</span></div>
+    <div class="nav-tabs">
+      <div class="nav-tab">Following</div>
+      <div class="nav-tab active">For You</div>
+    </div>
+    <div class="nav-actions">
+      <button class="nav-icon-btn" onclick="openStats()" title="Stats">📊</button>
+    </div>
+  </div>
+  <div id="feed"></div>
+</div>
+
+<!-- SCREEN 5 — Waiting (phone, before config is ready) -->
+<div id="screen-waiting">
+  <div class="logo">Bing<span>Tok</span></div>
+  <div class="spinner"></div>
+  <p>Waiting for the researcher to set up the test…</p>
+</div>
+
+<div id="screen-preload">
+  <div class="logo">Bing<span>Tok</span></div>
+  <div id="preload-bar-wrap"><div id="preload-bar"></div></div>
+  <p id="preload-label">Video's laden… 0 / 0</p>
+</div>
+
+<div id="screen-participant">
+  <div class="participant-form">
+    <div class="logo">Bing<span>Tok</span></div>
+    <div>
+      <h2>Vul je gegevens in</h2>
+      <p>Deze info is alleen zichtbaar voor de onderzoeker en wordt niet gedeeld.</p>
+    </div>
+    <div class="p-field">
+      <label>Naam</label>
+      <input id="p-name" type="text" placeholder="Jouw naam" autocomplete="off" />
+    </div>
+    <div class="p-field">
+      <label>Leeftijd</label>
+      <input id="p-age" type="number" placeholder="Bijv. 24" min="1" max="120" />
+    </div>
+    <div class="p-field">
+      <label>Geslacht</label>
+      <div class="gender-options">
+        <button class="gender-btn" data-gender="Man" onclick="selectGender(this)">Man</button>
+        <button class="gender-btn" data-gender="Vrouw" onclick="selectGender(this)">Vrouw</button>
+        <button class="gender-btn" data-gender="Zeg ik liever niet" onclick="selectGender(this)">Zeg ik liever niet</button>
+      </div>
+    </div>
+    <button class="participant-submit" id="participant-submit-btn" onclick="submitParticipant()">Start test →</button>
+  </div>
+</div>
+
+<div id="mute-badge">🔇</div>
+<div id="key-hint">↑↓ scroll • Space pause • M mute • L like • S save • C comment</div>
+
+<div id="comment-drawer">
+  <div class="drawer-bg" onclick="closeCommentDrawer()"></div>
+  <div class="drawer-box">
+    <div class="drawer-title">Comments</div>
+    <div id="comment-list"></div>
+    <div class="drawer-input-row">
+      <input id="comment-input" placeholder="Add a comment…" />
+      <button class="drawer-send" onclick="submitComment()">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Share Popup ── -->
+<div id="profile-overlay">
+  <button class="profile-back-btn" onclick="closeProfile()">←</button>
+  <div class="profile-header">
+    <div class="profile-avatar-ring"><div class="profile-avatar-inner" id="profile-avatar-inner">👤</div></div>
+    <div class="profile-display-name" id="profile-display-name">@creator</div>
+    <div class="profile-handle" id="profile-handle">@creator</div>
+    <div class="profile-stats-row">
+      <div class="profile-stat"><span class="psn" id="profile-stat-following">13</span><span class="psl">Volgend</span></div>
+      <div class="profile-stat"><span class="psn" id="profile-stat-followers">—</span><span class="psl">Volgers</span></div>
+      <div class="profile-stat"><span class="psn" id="profile-stat-likes">—</span><span class="psl">Likes</span></div>
+    </div>
+    <div class="profile-actions">
+      <button class="profile-follow-btn">Volgen</button>
+      <button class="profile-msg-btn">✉</button>
+      <button class="profile-msg-btn">↗</button>
+      <button class="profile-msg-btn" id="profile-edit-btn" onclick="openEditAccount()">✏️</button>
+    </div>
+    <div class="profile-bio" id="profile-bio"></div>
+  </div>
+  <div class="profile-tabs">
+    <div class="profile-tab active">⠿ Video's</div>
+    <div class="profile-tab">↺ Herplaatsingen</div>
+    <div class="profile-tab">☆ Favorieten</div>
+  </div>
+  <div class="profile-grid" id="profile-grid"></div>
+</div>
+
+<div id="edit-account-modal">
+  <div class="modal-box" style="gap:14px">
+    <h3>Account <span>bewerken</span></h3>
+    <div class="edit-pfp-btn" id="edit-pfp-btn" onclick="document.getElementById('edit-pfp-file').click()">
+      <span>👤</span>
+      <div class="pfp-edit-badge">Wijzig</div>
+    </div>
+    <input type="file" id="edit-pfp-file" accept="image/*" style="display:none" onchange="handleEditPfp(this)">
+    <input class="modal-input" id="edit-username-input" placeholder="@gebruikersnaam" maxlength="40" />
+    <textarea class="modal-input textarea" id="edit-bio-input" placeholder="Bio / beschrijving" maxlength="200" rows="3"></textarea>
+    <div class="modal-actions">
+      <button class="pill-btn outline sm" onclick="closeEditAccount()">Annuleer</button>
+      <button class="pill-btn sm" onclick="saveEditAccount()">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<div id="share-popup">
+  <div class="share-popup-bg" onclick="closeSharePopup()"></div>
+  <div class="share-popup-box">
+    <div class="share-popup-title">Deel naar vrienden</div>
+    <button class="share-friend-btn" onclick="confirmShare()">
+      <div class="share-friend-avatar">👤</div>
+      <div class="share-friend-info">
+        <div class="share-friend-name">Stuur naar vriend</div>
+        <div class="share-friend-sub">Deel deze video direct</div>
+      </div>
+      <span style="margin-left:auto;font-size:1.2rem;color:#fe2c55">→</span>
+    </button>
+    <button class="share-cancel-btn" onclick="closeSharePopup()">Annuleren</button>
+  </div>
+</div>
+
+<div id="test-name-modal">
+  <div class="modal-box">
+    <h3>Name your <span>Test</span></h3>
+    <p>Give this test a name so you can identify the results later.</p>
+    <input class="modal-input" id="test-name-input" placeholder="e.g. Hook test · April batch" maxlength="80" />
+    <div class="modal-actions">
+      <button class="pill-btn outline sm" onclick="document.getElementById('test-name-modal').classList.remove('show')">Cancel</button>
+      <button class="pill-btn sm" onclick="confirmStartTest()">▶ Start Test</button>
+    </div>
+  </div>
+</div>
+
+<button id="complete-btn" onclick="showSaveModal()">✅ Complete Test</button>
+
+<div id="save-modal">
+  <div class="save-box">
+    <h3>Test <span>Complete</span></h3>
+    <div class="save-summary" id="save-summary"></div>
+    <div class="save-actions">
+      <button class="pill-btn sm" onclick="downloadTXT()">⬇ Save as .txt</button>
+      <button class="pill-btn outline sm" onclick="closeSaveModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="stats-panel">
+  <div class="stats-header">
+    <h2>Test <span>Results</span></h2>
+    <button class="close-btn" onclick="closeStats()">✕</button>
+  </div>
+  <div class="stats-actions">
+    <button class="export-btn" onclick="exportStats()">⬇ Export JSON</button>
+    <button class="clear-btn" onclick="clearStats()">🗑 Clear data</button>
+  </div>
+  <div id="stats-grid" class="stats-grid"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════
+// MODE DETECTION
+// ═══════════════════════════════════
+const MODE = location.pathname === '/test'  ? 'test'
+           : location.pathname === '/admin' ? 'admin'
+           : 'setup';
+
+
+// Participant ID — unique per browser tab, persists through the test session
+const PID = (() => {
+  let id = localStorage.getItem('bingtok_pid');
+  if (!id) { id = Math.random().toString(36).slice(2, 8); localStorage.setItem('bingtok_pid', id); }
+  return id;
+})();
+
+// ═══════════════════════════════════
+// DATA
+// ═══════════════════════════════════
+let videos = [];        // all videos in feed order (test + filler mixed)
+let testVideos = [];    // only the test videos (stats tracked)
+let fillerVideos = [];  // auto-generated filler
+let _fillerCollapsed = true;
+let currentIdx = 0;
+let globalMuted = true; // start gedempt voor autoplay, wordt opgeheven na eerste tap
+let feedObserver;
+let commentTargetIdx = null;
+const watchSessions = {};
+let testName = '';
+let testStartedAt = null;
+
+// ═══════════════════════════════════
+// UTILS
+// ═══════════════════════════════════
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function fmtCount(n) {
+  n = +n || 0;
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.0','') + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace('.0','') + 'K';
+  return String(n);
+}
+
+const FILLER_NAMES = [
+  'Emma','Liam','Sophie','Noah','Julia','Daan','Lisa','Sem','Sara','Tim',
+  'Noor','Lars','Fenna','Bram','Roos','Finn','Hanna','Luuk','Amber','Joris',
+  'Lotte','Niels','Eline','Ruben','Mila','Thijs','Fleur','Sven','Manon','Koen',
+  'Vera','Bas','Iris','Job','Silke','Stan','Nathalie','Rick','Jolien','Pieter',
+];
+
+const FILLER_THEMES = [
+  {
+    keys: ['voetbal','soccer','football','goal','sport','arsenal','ajax','fcb','match','game','ball'],
+    formats: [n=>`Sport${n}`, n=>`${n}Voetbal`, n=>`Goal${n}`, n=>`${n}Sport`, n=>`Matchday${n}`],
+    descs: ['Die actie was 🔥','Geen woorden voor dit moment 😤⚽','Zo hoort het te gaan 💪'],
+    tags: ['#voetbal','#sport','#football','#foryou','#viral'],
+  },
+  {
+    keys: ['dans','dance','choreo','moves','shuffle','freestyle'],
+    formats: [n=>`Dans${n}`, n=>`${n}Danst`, n=>`Choreo${n}`, n=>`${n}Moves`],
+    descs: ['New choreo! Wat vinden jullie? 🕺','Oefenen oefenen oefenen 💃 eindelijk gelukt!','Drop een ❤️ als je dit ook kan!'],
+    tags: ['#dans','#dance','#choreo','#foryou','#viral'],
+  },
+  {
+    keys: ['food','eten','recept','cook','kook','bakken','bake','snack','lunch','dinner'],
+    formats: [n=>`Foodie${n}`, n=>`${n}Kookt`, n=>`${n}Eet`, n=>`Kook${n}`],
+    descs: ['Recept in de comments 👇 zo makkelijk!','Dit moet je echt een keer proberen 😍🍴','Klaar in 10 minuten en zo lekker 🙌'],
+    tags: ['#food','#recept','#foodtok','#koken','#foryou'],
+  },
+  {
+    keys: ['travel','reis','vlog','city','trip','vakantie','abroad'],
+    formats: [n=>`Reis${n}`, n=>`${n}Reist`, n=>`Vlog${n}`, n=>`${n}OnTour`],
+    descs: ['Dit plekje moet je echt bezoeken 😍🌍','Niemand die dit verwacht had!','Zo mooi hier, geen filter nodig ✨'],
+    tags: ['#travel','#reis','#vlog','#vakantie','#foryou'],
+  },
+  {
+    keys: ['grappig','funny','lol','fail','prank','humor','lachen','joke'],
+    formats: [n=>`Lol${n}`, n=>`${n}Lacht`, n=>`Fail${n}`, n=>`${n}Fails`],
+    descs: ['Kon het niet laten lachen 😂💀','Wie herkent dit?? 😭','Elke dag een beetje chaos 🙃'],
+    tags: ['#grappig','#funny','#lol','#foryou','#viral'],
+  },
+  {
+    keys: ['muziek','music','song','zingen','sing','beats','rap','hiphop','pop'],
+    formats: [n=>`Muziek${n}`, n=>`${n}Zingt`, n=>`Beat${n}`, n=>`${n}Music`],
+    descs: ['Dit nummer zit al de hele dag in mijn hoofd 🎶','Nieuwe favoriet gevonden 🔊❤️','Volume omhoog en genieten 🎵'],
+    tags: ['#muziek','#music','#foryou','#newmusic','#vibes'],
+  },
+  {
+    keys: ['gym','fitness','workout','training','sporten','lifting','cardio'],
+    formats: [n=>`Gym${n}`, n=>`${n}Traint`, n=>`Fit${n}`, n=>`${n}Fitness`],
+    descs: ['Geen excuses meer 💪','Dag 30 van mijn challenge ✅','Progressie is progressie 🔥'],
+    tags: ['#gym','#fitness','#workout','#foryou','#viral'],
+  },
+  {
+    keys: ['gaming','game','gamer','stream','play','pc','console','fps'],
+    formats: [n=>`Game${n}`, n=>`${n}Speelt`, n=>`${n}GG`, n=>`Pro${n}`],
+    descs: ['Dit was echt niet te geloven 😱🎮','Clip van vannacht, let op het einde!','GG no re 💀'],
+    tags: ['#gaming','#gamer','#foryou','#viral','#gameplay'],
+  },
+  {
+    keys: ['beauty','makeup','skincare','haar','hair','nails','nagels','mode','fashion','outfit'],
+    formats: [n=>`Beauty${n}`, n=>`${n}Beauty`, n=>`Style${n}`, n=>`${n}Style`],
+    descs: ['Mijn go-to routine 💅','GRWM voor vandaag ✨','Jullie vroegen erom, hier is het look!'],
+    tags: ['#beauty','#makeup','#fashion','#foryou','#style'],
+  },
+  {
+    keys: ['huisdier','hond','kat','puppy','kitten','dog','cat','pet','dier'],
+    formats: [n=>`${n}EnHaar${['Hond','Kat','Pup'][Math.floor(Math.random()*3)]}`, n=>`Dier${n}`, n=>`${n}Huisdier`],
+    descs: ['Te schattig voor woorden 🐾','Beste vriend ever 🥹','Kijk toch 😭❤️'],
+    tags: ['#huisdier','#dieren','#hond','#kat','#foryou'],
+  },
+];
+
+function pickFillerUsername(filename) {
+  const base = (filename || '').replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').trim().toLowerCase();
+  const name = FILLER_NAMES[Math.floor(Math.random() * FILLER_NAMES.length)];
+  for (const t of FILLER_THEMES) {
+    if (t.keys.some(k => base.includes(k))) {
+      const fmt = t.formats[Math.floor(Math.random() * t.formats.length)];
+      return `@${fmt(name)}`;
+    }
+  }
+  return `@${name}`;
+}
+
+function generateTestDescription(filename) {
+  const base = (filename || '').replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').trim().toLowerCase();
+  const foodKeys = ['food','eten','recept','cook','kook','bakken','bake','snack','lunch','dinner','pasta','soep','soup','cake','pizza','salade','salad','curry','noodle','wrap','burger','taco','risotto','lasagne','pannenkoek','pancake','smoothie','sushi'];
+  if (!foodKeys.some(k => base.includes(k))) return '';
+
+  // Derive dish name from filename, fallback to generic
+  const dishRaw = base.replace(/\b(recept|recipe|video|cook|kook|maken|make|nl|hd|final|edit|v\d)\b/g,'').replace(/\s+/g,' ').trim();
+  const dish = dishRaw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'Lekker Gerecht';
+
+  const recipes = [
+    {
+      intro: `Mijn favoriete recept voor ${dish}! 😍🍴 Zo makkelijk en zo lekker — dit moet je echt een keer proberen. Sla dit op voor later! 🔖`,
+      ingredients: ['250g pasta','1 ui','2 teentjes knoflook','200ml room','50g geraspte Parmezaan','olijfolie','zout & peper','verse basilicum'],
+      steps: ['Kook de pasta al dente in gezouten water.','Fruit de ui en knoflook in olijfolie op middelhoog vuur.','Voeg de room toe en laat 3 min inkoken.','Meng de pasta erdoor en strooi de Parmezaan erover.','Afmaken met verse basilicum en zwarte peper. Eet smakelijk! 🍝'],
+    },
+    {
+      intro: `Dit recept voor ${dish} gaat viraal en dat snap ik! 🔥 Klaar in 20 minuten en de hele familie is blij. Sla op en probeer het dit weekend! 🙌`,
+      ingredients: ['400g kipfilet','1 blik tomaten','1 rode paprika','1 ui','2 tl paprikapoeder','1 tl komijn','1 tl kurkuma','verse koriander','rijst om te serveren'],
+      steps: ['Snijd de kip in blokjes en bak goudbruin.','Voeg ui en paprika toe, bak 5 min mee.','Roer de kruiden erdoor en bak 1 min.','Giet de tomaten erbij en laat 15 min sudderen.','Serveer met rijst en verse koriander. 🌿'],
+    },
+    {
+      intro: `${dish} maar dan NEXT LEVEL ✨ Ik maak dit elke week en het wordt nooit saai. Recept hieronder 👇 en sla dit op voor later!`,
+      ingredients: ['3 eieren','150g bloem','200ml melk','snufje zout','1 el boter','honing & fruit naar keuze'],
+      steps: ['Meng eieren, bloem, melk en zout tot een glad beslag.','Laat het beslag 10 min rusten.','Bak goudgele pannenkoeken in boter op middelhoog vuur.','Serveer met honing, fruit of wat je maar lekker vindt.','Genieten maar! 🥞❤️'],
+    },
+    {
+      intro: `Nog nooit zo snel zo'n lekkere ${dish} gemaakt! ⏱️🍴 Dit recept is foolproof — zelfs als je normaal niet kookt. Opslaan en uitproberen! 😤`,
+      ingredients: ['200g bloem','1 zakje gist','125ml lauw water','1 tl zout','1 el olijfolie','toppings naar keuze'],
+      steps: ['Meng bloem, gist, zout en water tot een deeg.','Kneed 8 min en laat 1 uur rijzen onder een theedoek.','Rol dun uit en beleg naar wens.','Bak 12 min in een voorverwarmde oven op 220°C.','Laat even afkoelen en snijd in punten. 🍕🔥'],
+    },
+  ];
+
+  const r = recipes[Math.floor(Math.random() * recipes.length)];
+  let desc = r.intro + '\n\n';
+  desc += '🛒 Ingrediënten:\n' + r.ingredients.map(i => `• ${i}`).join('\n');
+  desc += '\n\n👨‍🍳 Bereiding:\n' + r.steps.map((s,i) => `${i+1}. ${s}`).join('\n');
+  desc += '\n\n#recept #foodtok #koken #lekkereten #foryou #viral';
+  return desc;
+}
+
+function generateFillerMeta(filename) {
+  const base = (filename || '').replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').trim().toLowerCase();
+
+  const descs = [
+    'Check dit even 👀',
+    'Wat vinden jullie hiervan? 🤔',
+    'Dit moest ik echt delen 🙌',
+    'Kon dit niet voor mezelf houden 😅',
+    'Reacties in de comments! 👇',
+    'Verwachtte dit niet 😂',
+    'Gewoon omdat het kan 🤷',
+    'Voor de mensen die het nog niet hadden gezien',
+  ];
+
+  const tagSets = [
+    ['#foryou','#viral','#fyp'],
+    ['#trending','#nederland','#foryou'],
+    ['#fyp','#viral','#relatable'],
+    ['#foryou','#trending','#nl'],
+  ];
+
+  // use themed desc/tags if there's a match
+  for (const t of FILLER_THEMES) {
+    if (t.keys.some(k => base.includes(k))) {
+      const desc = t.descs[Math.floor(Math.random() * t.descs.length)];
+      const tags = [...t.tags].sort(() => Math.random() - .5).slice(0, 3);
+      return { username: pickFillerUsername(filename), description: `${desc} ${tags.join(' ')}`, ...randomStats() };
+    }
+  }
+
+  const desc = descs[Math.floor(Math.random() * descs.length)];
+  const tags = tagSets[Math.floor(Math.random() * tagSets.length)];
+  return { username: pickFillerUsername(filename), description: `${desc} ${tags.join(' ')}`, ...randomStats() };
+}
+
+function randomStats() {
+  return { likes: randInt(800,480_000), comments: randInt(50,42_000), shares: randInt(30,18_000), saves: randInt(20,15_000) };
+}
+
+function randomUsername() {
+  return `@${FILLER_NAMES[Math.floor(Math.random() * FILLER_NAMES.length)]}`;
+}
+
+function fmtDuration(secs) {
+  const m = Math.floor(secs / 60), s = secs % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function slug(str) { return (str||'test').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
+function isoDate() { return new Date().toISOString().slice(0,10); }
+
+// ═══════════════════════════════════
+// SCREENS
+// ═══════════════════════════════════
+const SCREENS = {
+  upload:    document.getElementById('screen-upload'),
+  setup:     document.getElementById('screen-setup'),
+  admin:     document.getElementById('screen-admin'),
+  dashboard: document.getElementById('screen-dashboard'),
+  feed:        document.getElementById('screen-feed'),
+  waiting:     document.getElementById('screen-waiting'),
+  preload:     document.getElementById('screen-preload'),
+  participant: document.getElementById('screen-participant'),
+};
+
+function showScreen(name) {
+  const blockScreens = new Set(['feed', 'setup', 'admin', 'dashboard']);
+  Object.entries(SCREENS).forEach(([k, el]) => {
+    el.style.display = (k === name) ? (blockScreens.has(k) ? 'block' : 'flex') : 'none';
+  });
+}
+
+function goToUpload() { showScreen('upload'); }
+function goToSetup()  { buildSetupCards(); showScreen('setup'); }
+
+// ═══════════════════════════════════
+
+// ═══════════════════════════════════
+// SERVER API
+// ═══════════════════════════════════
+function postEvent(type, data) {
+  if (MODE !== 'test') return;
+  fetch(api('/api/event'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, ...data, pid: PID, at: new Date().toISOString() }),
+  }).catch(() => {});
+}
+
+async function postConfig(config) {
+  await fetch(api('/api/config'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+}
+
+async function fetchConfig() {
+  const r = await fetch(api('/api/config'));
+  return r.json();
+}
+
+// ═══════════════════════════════════
+// ═══════════════════════════════════
+// SESSION STATUS (upload screen)
+// ═══════════════════════════════════
+async function checkSessionStatus() {
+  const box  = document.getElementById('session-status-box');
+  const text = document.getElementById('session-status-text');
+  try {
+    const cfg = await fetch(api('/api/config')).then(r => r.json());
+    if (cfg && cfg.testName) {
+      const since = cfg.startedAt ? ' · gestart ' + new Date(cfg.startedAt).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}) : '';
+      text.textContent = `Actieve sessie: ${cfg.testName}${since}`;
+      box.style.display = 'flex';
+    } else {
+      box.style.display = 'none';
+    }
+  } catch {
+    box.style.display = 'none';
+  }
+}
+
+async function stopSession() {
+  if (!confirm('Sessie stoppen? De telefoons gaan terug naar het wachtscherm.')) return;
+  await fetch(api('/api/reset'), { method: 'POST' });
+  checkSessionStatus();
+}
+
+if (MODE === 'setup') {
+  checkSessionStatus();
+  setInterval(checkSessionStatus, 5000);
+}
+
+// ═══════════════════════════════════
+// PRESETS
+// ═══════════════════════════════════
+let _presetOpen = false;
+
+function togglePresetBox() {
+  _presetOpen = !_presetOpen;
+  document.getElementById('preset-body').style.display = _presetOpen ? 'flex' : 'none';
+  document.getElementById('preset-chevron').textContent = _presetOpen ? '▴' : '▾';
+  if (_presetOpen) loadPresetList();
+}
+
+async function loadPresetList() {
+  const list = document.getElementById('preset-list');
+  try {
+    const presets = await fetch('/api/presets').then(r => r.json());
+    if (!presets.length) {
+      list.innerHTML = '<span style="color:#555;font-size:.85rem">Geen presets gevonden — maak een map aan in <code>presets/</code></span>';
+      return;
+    }
+    list.innerHTML = '';
+    for (const name of presets) {
+      const data = await fetch(`/api/preset?name=${encodeURIComponent(name)}`).then(r => r.json());
+      const counts = [
+        `${data.test?.length || 0} test`,
+        `${data.filler?.length || 0} filler`,
+        `${data['filler-data']?.length || 0} filler-data`,
+      ].join(' · ');
+      const div = document.createElement('div');
+      div.className = 'preset-item';
+      div.innerHTML = `
+        <div><strong>${name}</strong><br><span class="preset-counts">${counts}</span></div>
+        <button class="pill-btn sm" onclick="loadPreset('${name}')">Laden →</button>
+      `;
+      list.appendChild(div);
+    }
+  } catch {
+    list.innerHTML = '<span style="color:#e55;font-size:.85rem">Kan presets niet laden</span>';
+  }
+}
+
+async function loadPreset(name) {
+  uploadBtn.disabled = true;
+  try {
+    const data = await fetch(`/api/preset?name=${encodeURIComponent(name)}`).then(r => r.json());
+
+    const allFiles = [
+      ...(data.test || []).map(f => ({ ...f, cat: 'test' })),
+      ...(data.filler || []).map(f => ({ ...f, cat: 'filler' })),
+      ...(data['filler-data'] || []).map(f => ({ ...f, cat: 'filler-data' })),
+    ];
+
+    let done = 0;
+    for (const f of allFiles) {
+      fileCount.textContent = `Comprimeren ${done + 1}/${allFiles.length}: ${f.name}…`;
+      let url = f.url; // already cached
+      if (!url) {
+        const res = await fetch('/api/preset/compress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preset: name, cat: f.cat, file: f.name }),
+        });
+        url = (await res.json()).url;
+      }
+      if (f.cat === 'filler') {
+        fillerVideos.push({
+          url, name: f.name, username: '@filler', pfpUrl: null, pfpDataUrl: null,
+          description: '', ...randomStats(),
+          isFiller: true, isTrackedFiller: false, _liked: false, _saved: false,
+        });
+      } else {
+        testVideos.push({
+          url, name: f.name, serverId: f.name, username: '@SportCrowd',
+          pfpUrl: null, pfpDataUrl: null,
+          description: generateTestDescription(f.name), ...randomStats(),
+          isFiller: false, isTrackedFiller: f.cat === 'filler-data', _liked: false, _saved: false,
+        });
+      }
+      done++;
+    }
+
+    const total = testVideos.length + fillerVideos.length;
+    fileCount.textContent = `✓ ${total} video's geladen uit "${name}"`;
+    uploadBtn.disabled = total === 0;
+    _presetOpen = false;
+    document.getElementById('preset-body').style.display = 'none';
+    document.getElementById('preset-chevron').textContent = '▾';
+  } catch (e) {
+    fileCount.textContent = 'Preset laden mislukt';
+    uploadBtn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════
+// SCREEN 1 — UPLOAD (setup only)
+// ═══════════════════════════════════
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const uploadBtn = document.getElementById('upload-next-btn');
+const fileCount = document.getElementById('file-count');
+
+if (MODE === 'setup') {
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleUploadFiles(e.dataTransfer.files); });
+  fileInput.addEventListener('change', () => handleUploadFiles(fileInput.files));
+  uploadBtn.addEventListener('click', () => { buildSetupCards(); showScreen('setup'); });
+}
+
+async function handleUploadFiles(files) {
+  const videoExts = /\.(mp4|mov|webm|mkv|avi|m4v)$/i;
+  const vids = Array.from(files).filter(f => f.type.startsWith('video/') || videoExts.test(f.name));
+  if (!vids.length) return;
+
+  fileCount.textContent = `Uploading ${vids.length} video(s) to server…`;
+  uploadBtn.disabled = true;
+
+  const fd = new FormData();
+  vids.forEach(f => fd.append('files', f));
+
+  try {
+    const res  = await fetch('/api/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    data.files.forEach(f => {
+      testVideos.push({
+        url: f.url, name: f.original, serverId: f.id,
+        username: '@SportCrowd',
+        pfpUrl: null, pfpDataUrl: null,
+        description: generateTestDescription(f.original), ...randomStats(),
+        isFiller: false,
+        _liked: false, _saved: false,
+      });
+    });
+    fileCount.textContent = `${testVideos.length} test video(s) loaded`;
+    uploadBtn.disabled = testVideos.length === 0;
+  } catch {
+    fileCount.textContent = 'Upload failed — is the server running?';
+    uploadBtn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════
+// SCREEN 2 — SETUP CARDS
+// ═══════════════════════════════════
+function buildSetupCards() {
+  const container = document.getElementById('setup-cards');
+  container.innerHTML = '';
+
+  // ── Eigen video's (bovenaan) ──
+  const testLabel = document.createElement('div');
+  testLabel.className = 'section-label';
+  testLabel.textContent = 'Jouw video\'s — stats worden bijgehouden';
+  container.appendChild(testLabel);
+
+  const ownVideos = testVideos.filter(v => !v.isTrackedFiller);
+  if (ownVideos.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'color:#444;font-size:.85rem;padding:12px 0';
+    empty.textContent = 'Nog geen video\'s geüpload.';
+    container.appendChild(empty);
+  } else {
+    ownVideos.forEach((v, i) => {
+      const realIdx = testVideos.indexOf(v);
+      try { container.appendChild(makeSetupCard(v, realIdx)); }
+      catch(e) { console.error('makeSetupCard error', e, v); }
+    });
+  }
+
+  // ── Filler section (uitklapbaar) ──
+  const fillerCount = fillerVideos.length + testVideos.filter(v => v.isTrackedFiller).length;
+  const header = document.createElement('div');
+  header.className = 'collapsible-header' + (_fillerCollapsed ? '' : ' open');
+  header.style.marginTop = '16px';
+  header.innerHTML = `Filler video's <span style="color:#333;font-size:.75rem;font-weight:600;text-transform:none;letter-spacing:0">(${fillerCount})</span><span class="chevron">▾</span>`;
+  header.addEventListener('click', () => {
+    _fillerCollapsed = !_fillerCollapsed;
+    buildSetupCards();
+  });
+  container.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'collapsible-body' + (_fillerCollapsed ? ' collapsed' : '');
+
+  // Add filler button bar
+  const addFillerBar = document.createElement('div');
+  addFillerBar.className = 'filler-add-bar';
+  addFillerBar.innerHTML = `<p>Filler video's zien er realistisch uit maar worden <strong>niet</strong> getrackt in de stats.</p>`;
+  const addFillerBtn = document.createElement('button');
+  addFillerBtn.className = 'pill-btn sm';
+  addFillerBtn.textContent = '+ Filler toevoegen';
+  addFillerBtn.addEventListener('click', () => triggerFillerUpload());
+  addFillerBar.appendChild(addFillerBtn);
+  const addTrackedFillerBtn = document.createElement('button');
+  addTrackedFillerBtn.className = 'pill-btn sm';
+  addTrackedFillerBtn.style.cssText = 'background:rgba(254,44,85,.15);border-color:rgba(254,44,85,.5);color:#fe2c55;margin-left:8px';
+  addTrackedFillerBtn.textContent = '+ Getrackte filler';
+  addTrackedFillerBtn.addEventListener('click', () => triggerTrackedFillerUpload());
+  addFillerBar.appendChild(addTrackedFillerBtn);
+  body.appendChild(addFillerBar);
+
+  fillerVideos.forEach((v, i) => body.appendChild(makeFillerCard(v, i)));
+  testVideos.forEach((v, i) => { if (v.isTrackedFiller) body.appendChild(makeSetupCard(v, i)); });
+
+  container.appendChild(body);
+}
+
+function makeSetupCard(v, i) {
+  const card = document.createElement('div');
+  card.className = 'video-card';
+
+  const top = document.createElement('div');
+  top.className = 'video-card-top';
+
+  // thumbnail
+  const thumbWrap = document.createElement('div');
+  thumbWrap.className = 'thumb-wrap';
+  const thumbVid = document.createElement('video');
+  thumbVid.src = v.url; thumbVid.muted = true; thumbVid.preload = 'metadata';
+  thumbVid.addEventListener('loadedmetadata', () => { thumbVid.currentTime = 0.5; });
+  const playBadge = document.createElement('div');
+  playBadge.className = 'play-badge'; playBadge.textContent = '▶';
+  thumbWrap.append(thumbVid, playBadge);
+
+  // pfp
+  const pfpWrap = document.createElement('div');
+  pfpWrap.className = 'pfp-wrap';
+  const pfpFile = document.createElement('input');
+  pfpFile.type = 'file'; pfpFile.accept = 'image/*'; pfpFile.className = 'pfp-file';
+
+  function renderPfp() {
+    pfpWrap.innerHTML = '';
+    if (v.pfpDataUrl) {
+      const img = document.createElement('img'); img.src = v.pfpDataUrl;
+      pfpWrap.appendChild(img);
+    } else {
+      pfpWrap.textContent = '👤';
+    }
+    const ov = document.createElement('div');
+    ov.className = 'pfp-overlay'; ov.textContent = 'Change photo';
+    pfpWrap.appendChild(ov);
+  }
+  renderPfp();
+
+  pfpWrap.addEventListener('click', () => pfpFile.click());
+  pfpFile.addEventListener('change', () => {
+    const file = pfpFile.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => { v.pfpDataUrl = e.target.result; renderPfp(); };
+    reader.readAsDataURL(file);
+  });
+
+  // fields
+  const fields = document.createElement('div');
+  fields.className = 'card-fields';
+
+  if (v.isTrackedFiller) {
+    const trackedBadge = document.createElement('span');
+    trackedBadge.style.cssText = 'display:inline-block;background:rgba(254,44,85,.15);border:1px solid rgba(254,44,85,.4);color:#fe2c55;border-radius:6px;padding:2px 8px;font-size:.7rem;font-weight:700;margin-bottom:6px;width:fit-content';
+    trackedBadge.textContent = 'TRACKED FILLER';
+    fields.appendChild(trackedBadge);
+  }
+
+  const topActions = document.createElement('div');
+  topActions.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:2px';
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'remove-btn'; removeBtn.textContent = '✕ Remove';
+  removeBtn.addEventListener('click', () => { testVideos.splice(i, 1); buildSetupCards(); });
+  const autoFillBtn = document.createElement('button');
+  autoFillBtn.style.cssText = 'background:rgba(254,44,85,.12);border:1px solid rgba(254,44,85,.4);color:#fe2c55;border-radius:8px;padding:4px 12px;font-size:.75rem;cursor:pointer;font-weight:700';
+  autoFillBtn.textContent = '✨ Auto-fill';
+  autoFillBtn.addEventListener('click', () => {
+    const generated = generateFillerMeta(v.name);
+    testVideos[i].username = generated.username;
+    testVideos[i].description = generated.description;
+    buildSetupCards();
+  });
+  topActions.append(autoFillBtn, removeBtn);
+
+  const fieldRow = document.createElement('div');
+  fieldRow.className = 'field-row';
+  fieldRow.appendChild(makeField('Account name', v.username, val => testVideos[i].username = val));
+
+  const descGroup = document.createElement('div');
+  descGroup.className = 'field-group';
+  const descLabel = document.createElement('label'); descLabel.textContent = 'Description / Caption';
+  const descTA = document.createElement('textarea');
+  descTA.placeholder = "What's this video about? Add hashtags…";
+  descTA.value = v.description;
+  descTA.addEventListener('input', () => testVideos[i].description = descTA.value);
+  descGroup.append(descLabel, descTA);
+
+  fields.append(topActions, fieldRow, descGroup);
+  top.append(thumbWrap, pfpWrap, pfpFile, fields);
+
+  const statsRow = document.createElement('div');
+  statsRow.className = 'stats-row';
+  statsRow.append(
+    makeStatInput('❤️','Likes',v.likes, val => testVideos[i].likes = +val),
+    makeStatInput('💬','Comments',v.comments, val => testVideos[i].comments = +val),
+    makeStatInput('↗️','Shares',v.shares, val => testVideos[i].shares = +val),
+    makeStatInput('🔖','Saves',v.saves, val => testVideos[i].saves = +val),
+  );
+  const rerollBtn = document.createElement('button');
+  rerollBtn.style.cssText = 'background:transparent;border:1px solid #333;color:#888;border-radius:8px;padding:6px 12px;font-size:.75rem;cursor:pointer;white-space:nowrap';
+  rerollBtn.textContent = '🎲 Random';
+  rerollBtn.addEventListener('click', () => { Object.assign(testVideos[i], randomStats()); buildSetupCards(); });
+  statsRow.appendChild(rerollBtn);
+
+  card.append(top, statsRow);
+  return card;
+}
+
+function makeField(label, value, onChange) {
+  const g = document.createElement('div'); g.className = 'field-group';
+  const l = document.createElement('label'); l.textContent = label;
+  const inp = document.createElement('input'); inp.value = value;
+  inp.addEventListener('input', () => onChange(inp.value));
+  g.append(l, inp); return g;
+}
+
+function makeStatInput(icon, label, value, onChange) {
+  const g = document.createElement('div'); g.className = 'stat-input-group';
+  const ico = document.createElement('span'); ico.className = 'stat-ico'; ico.textContent = icon;
+  const inp = document.createElement('input'); inp.type = 'number'; inp.value = value; inp.min = 0;
+  inp.addEventListener('input', () => onChange(inp.value));
+  const lbl = document.createElement('span'); lbl.className = 'stat-lbl'; lbl.textContent = label;
+  g.append(ico, inp, lbl); return g;
+}
+
+function triggerFillerUpload() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'video/*'; inp.multiple = true;
+  inp.addEventListener('change', async () => {
+    const files = Array.from(inp.files);
+    if (!files.length) return;
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f, f.name));
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    const { files: saved } = await res.json();
+    saved.forEach(sf => {
+      const meta = generateFillerMeta(sf.original);
+      fillerVideos.push({
+        url: sf.url, name: sf.original, serverId: sf.id,
+        username: meta.username, description: meta.description,
+        likes: meta.likes, comments: meta.comments, shares: meta.shares, saves: meta.saves,
+        isFiller: true,
+      });
+    });
+    buildSetupCards();
+  });
+  inp.click();
+}
+
+function triggerTrackedFillerUpload() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'video/*'; inp.multiple = true;
+  inp.addEventListener('change', async () => {
+    const files = Array.from(inp.files);
+    if (!files.length) return;
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f, f.name));
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    const { files: saved } = await res.json();
+    saved.forEach(sf => {
+      const meta = generateFillerMeta(sf.original);
+      testVideos.push({
+        url: sf.url, name: sf.original, serverId: sf.id,
+        username: meta.username, description: meta.description,
+        likes: meta.likes, comments: meta.comments, shares: meta.shares, saves: meta.saves,
+        isFiller: false, isTrackedFiller: true,
+      });
+    });
+    buildSetupCards();
+  });
+  inp.click();
+}
+
+function makeFillerCard(v, i) {
+  const card = document.createElement('div');
+  card.className = 'video-card filler';
+
+  const top = document.createElement('div');
+  top.className = 'video-card-top';
+
+  const thumbWrap = document.createElement('div');
+  thumbWrap.className = 'thumb-wrap';
+  const thumbVid = document.createElement('video');
+  thumbVid.src = v.url; thumbVid.muted = true; thumbVid.preload = 'metadata';
+  thumbVid.addEventListener('loadedmetadata', () => { thumbVid.currentTime = 0.5; });
+  thumbWrap.appendChild(thumbVid);
+
+  const info = document.createElement('div');
+  info.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:6px;padding-left:4px';
+
+  const badge = document.createElement('span');
+  badge.style.cssText = 'display:inline-block;background:#1db954;color:#000;border-radius:6px;padding:2px 8px;font-size:.7rem;font-weight:700;width:fit-content';
+  badge.textContent = 'FILLER';
+
+  const nameEl = document.createElement('div');
+  nameEl.style.cssText = 'color:#aaa;font-size:.75rem;word-break:break-all';
+  nameEl.textContent = v.originalName || v.name;
+
+  const uname = document.createElement('div');
+  uname.style.cssText = 'color:#fff;font-size:.85rem;font-weight:600';
+  uname.textContent = v.username;
+
+  const desc = document.createElement('div');
+  desc.style.cssText = 'color:#888;font-size:.78rem;line-height:1.3';
+  desc.textContent = v.description;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'remove-btn'; removeBtn.textContent = '✕ Remove';
+  removeBtn.addEventListener('click', () => { fillerVideos.splice(i, 1); buildSetupCards(); });
+
+  info.append(badge, nameEl, uname, desc, removeBtn);
+  top.append(thumbWrap, info);
+  card.appendChild(top);
+  return card;
+}
+
+// ═══════════════════════════════════
+// SCREEN 3 — ADMIN MONITOR
+// ═══════════════════════════════════
+let adminVideoStats = {};   // merged across all participants for the stats grid
+let _participants   = {};   // pid → { name, videoStats, currentVideo, watchStart }
+let _adminConfig = null;
+let _state_events = [];
+
+// ── Room isolation ────────────────────────────────────────────────────────────
+let _roomId = new URLSearchParams(location.search).get('room');
+
+async function ensureRoom() {
+  if (_roomId) return _roomId;
+  const { room } = await fetch('/api/room/new').then(r => r.json());
+  _roomId = room;
+  const url = new URL(location.href);
+  url.searchParams.set('room', room);
+  history.replaceState({}, '', url);
+  return room;
+}
+
+function roomParam() { return _roomId ? `?room=${_roomId}` : ''; }
+function api(path) {
+  const sep = path.includes('?') ? '&' : '?';
+  return _roomId ? `${path}${sep}room=${_roomId}` : path;
+}
+let adminCurrentVideo = null;
+let adminWatchStart = null;
+let adminTimerInterval = null;
+let adminConnected = false;
+
+async function initAdmin() {
+  await ensureRoom();
+  adminVideoStats = {};
+  _participants   = {};
+  _state_events  = [];
+  adminConnected = false;
+
+  // Fetch real LAN IP from server
+  let lanBase = `http://${location.hostname}:${location.port}`;
+  try {
+    const { ip, port } = await fetch('/api/local-ip').then(r => r.json());
+    lanBase = `http://${ip}:${port}`;
+  } catch {}
+
+  // Use Cloudflare tunnel URL if available
+  try {
+    const { url } = await fetch('/api/public-url').then(r => r.json());
+    if (url) lanBase = url;
+  } catch {}
+
+  const shareBox = document.getElementById('admin-share-url');
+  const testUrl  = `${lanBase}/test?room=${_roomId}`;
+  shareBox.textContent = testUrl;
+  shareBox.style.cursor = 'pointer';
+  shareBox.title = 'Klik om te kopiëren';
+  shareBox.onclick = () => {
+    navigator.clipboard?.writeText(testUrl);
+    shareBox.textContent = '✓ Gekopieerd!';
+    setTimeout(() => { shareBox.textContent = testUrl; }, 1500);
+  };
+
+  fetch(api('/api/config')).then(r => r.json()).then(cfg => { _adminConfig = cfg; }).catch(() => {});
+
+  const es = new EventSource(api('/api/stream'));
+  es.onmessage = e => { try { handleAdminEvent(JSON.parse(e.data)); } catch {} };
+  es.onerror   = () => setAdminStatus(false);
+
+  adminTimerInterval = setInterval(updateWatchTimer, 1000);
+}
+
+
+function setAdminStatus(connected) {
+  adminConnected = connected;
+  const dot = document.getElementById('live-dot');
+  dot.classList.toggle('active', connected);
+  updateParticipantStatus();
+}
+
+function updateParticipantStatus() {
+  const sdot = document.getElementById('status-dot');
+  const stxt = document.getElementById('status-text');
+  const count = Object.keys(_participants).length;
+  if (count === 0) {
+    sdot.classList.remove('connected');
+    stxt.textContent = 'Wachten op deelnemers…';
+  } else {
+    sdot.classList.add('connected');
+    const names = Object.values(_participants).map(p => p.name).join(', ');
+    stxt.textContent = `${count} deelnemer${count > 1 ? 's' : ''} verbonden: ${names}`;
+  }
+}
+
+const EVENT_ICONS = {
+  watch_start: '▶️', watch_end: '⏹️',
+  like: '❤️', save: '🔖', share: '↗️',
+  comment: '💬', rewatch: '🔁',
+  participant: '👤', test_complete: '✅', profile_visit: '🧑',
+};
+
+function handleAdminEvent(ev) {
+  if (!adminConnected) setAdminStatus(true);
+  _state_events.push(ev);
+
+  const pid = ev.pid || 'unknown';
+
+  // Track participant name
+  if (ev.type === 'participant') {
+    if (!_participants[pid]) _participants[pid] = { name: ev.name, videoStats: {}, currentVideo: null, watchStart: null };
+    else _participants[pid].name = ev.name;
+    updateParticipantStatus();
+    appendEventRow(ev);
+    return;
+  }
+
+  if (!ev.videoName && ev.videoIndex === undefined && ['reset','loop','pause','seek'].includes(ev.type) === false) {
+    appendEventRow(ev);
+    return;
+  }
+  if (ev.type === 'reset') { appendEventRow(ev); return; }
+
+  if (ev.type === 'now_playing') {
+    adminUpdatePreview(ev.videoName);
+    if (ev.isFiller) { appendEventRow(ev); return; }
+    return;
+  }
+
+  // Ensure participant entry exists
+  if (!_participants[pid]) _participants[pid] = { name: pid, videoStats: {}, currentVideo: null, watchStart: null };
+  const p = _participants[pid];
+
+  if (ev.type === 'watch_start') {
+    p.currentVideo = ev.videoName;
+    p.watchStart = Date.now();
+    updateParticipantStatus();
+  }
+  if (ev.type === 'watch_end') {
+    p.currentVideo = null; p.watchStart = null;
+    updateParticipantStatus();
+  }
+  if (ev.type === 'rewatch') adminUpdatePreview(ev.videoName);
+
+  // Aggregate stats per video (merged across all participants)
+  const name = ev.videoName || ev.video || `video_${ev.videoIndex}`;
+  if (!adminVideoStats[name]) {
+    adminVideoStats[name] = {
+      views:0, watchSec:0, watchSessions:[], duration:0,
+      pauses:[], seeks:0, loops:0, comments:0, commentTexts:[], likes:0, saves:0, shares:0, rewatches:0, profileVisits:0,
+      _watchStartTs: null, firstInteractionSec: null,
+      index: ev.videoIndex ?? 0,
+    };
+  }
+  // Also track per-participant stats
+  if (!p.videoStats[name]) {
+    p.videoStats[name] = {
+      views:0, watchSec:0, watchSessions:[], duration:0,
+      pauses:[], seeks:0, loops:0, comments:0, commentTexts:[], likes:0, saves:0, shares:0, rewatches:0, profileVisits:0,
+      _watchStartTs: null, firstInteractionSec: null,
+      index: ev.videoIndex ?? 0,
+    };
+  }
+  const s = adminVideoStats[name];
+  const sp = p.videoStats[name];
+
+  const applyToStats = (st) => {
+    const markInt = () => {
+      if (st.firstInteractionSec === null && st._watchStartTs)
+        st.firstInteractionSec = +((Date.now() - st._watchStartTs) / 1000).toFixed(1);
+    };
+    if (ev.type === 'video_meta')  { st.duration = ev.duration || 0; }
+    if (ev.type === 'watch_start') { st.views++; st._watchStartTs = Date.now(); }
+    if (ev.type === 'watch_end')   { st.watchSec += ev.watchedSec || 0; st.watchSessions.push(ev.watchedSec || 0); st._watchStartTs = null; }
+    if (ev.type === 'pause')       { st.pauses.push(ev.videoTime || 0); markInt(); }
+    if (ev.type === 'seek')        { st.seeks++; markInt(); }
+    if (ev.type === 'loop')        { st.loops++; }
+    if (ev.type === 'comment')     { st.comments++; st.commentTexts.push(ev.text || ''); markInt(); }
+    if (ev.type === 'like')        { ev.liked ? st.likes++ : Math.max(0, st.likes--); markInt(); }
+    if (ev.type === 'save')        { ev.saved ? st.saves++ : Math.max(0, st.saves--); markInt(); }
+    if (ev.type === 'share')       { st.shares++; markInt(); }
+    if (ev.type === 'rewatch')     { st.rewatches++; }
+    if (ev.type === 'profile_visit') { st.profileVisits++; markInt(); }
+  };
+  applyToStats(s);
+  applyToStats(sp);
+
+  appendEventRow(ev);
+  renderAdminStats();
+}
+
+function appendEventRow(ev) {
+  const log = document.getElementById('admin-event-log');
+  const empty = log.querySelector('.event-log-empty');
+  if (empty) empty.remove();
+
+  const t = ev.at ? new Date(ev.at).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : '';
+  const icon = EVENT_ICONS[ev.type] || '•';
+  const desc = describeEvent(ev);
+  const pname = ev.pid && _participants[ev.pid]?.name ? `<span class="event-pid">${_participants[ev.pid].name}</span>` : '';
+
+  const row = document.createElement('div');
+  row.className = 'event-row';
+  row.innerHTML = `<span class="event-time">${t}</span>${pname}<span class="event-icon">${icon}</span><span class="event-desc">${desc}</span>`;
+  log.insertBefore(row, log.firstChild);
+  while (log.children.length > 100) log.removeChild(log.lastChild);
+}
+
+function describeEvent(ev) {
+  const vname = ev.videoName ? `<strong>${ev.videoName.replace(/\.[^.]+$/,'')}</strong>` : `video ${(ev.videoIndex||0)+1}`;
+  switch (ev.type) {
+    case 'watch_start': return `Started watching ${vname}`;
+    case 'watch_end':   return `Swiped away from ${vname} after ${(ev.watchedSec||0).toFixed(1)}s`;
+    case 'like':        return ev.liked ? `Liked ${vname}` : `Unliked ${vname}`;
+    case 'save':        return ev.saved ? `Saved ${vname}` : `Unsaved ${vname}`;
+    case 'share':       return `Shared ${vname}`;
+    case 'comment':     return `Commented on ${vname}: <em>"${ev.text||''}"</em>`;
+    case 'rewatch':     return `Rewatched ${vname} (×${ev.rewatchCount||1})`;
+    case 'profile_visit': return `Profiel bezocht van ${vname}`;
+    case 'participant': return `Deelnemer: <strong>${ev.name}</strong>, ${ev.age} jaar, ${ev.gender}`;
+    case 'test_complete': return 'Test completed';
+    default: return ev.type;
+  }
+}
+
+function buildDropoffChart(s) {
+  const sessions = s.watchSessions || [];
+  const dur = s.duration || 0;
+  if (sessions.length < 2 || dur < 1) return '';
+
+  // Build retention curve: for each second, how many viewers still watching
+  const steps = Math.min(Math.ceil(dur), 60); // max 60 points
+  const stepSec = dur / steps;
+  const points = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i * stepSec;
+    const still = sessions.filter(w => w >= t).length;
+    points.push({ t: +(t.toFixed(1)), pct: Math.round(still / sessions.length * 100) });
+  }
+
+  // SVG coords: W=200 H=54, with small padding
+  const W = 200, H = 48, PL = 22, PB = 14;
+  const cw = W - PL, ch = H - PB;
+  const px = t  => PL + (t / dur) * cw;
+  const py = pct => ch - (pct / 100) * ch;
+
+  const linePts = points.map(p => `${px(p.t).toFixed(1)},${py(p.pct).toFixed(1)}`).join(' ');
+  const fillPts = `${px(0).toFixed(1)},${ch} ` + linePts + ` ${px(dur).toFixed(1)},${ch}`;
+
+  // Axis ticks: 0%, 50%, 100% on Y; 0s and duration on X
+  const ticks = [
+    `<text class="dc-tick" x="${PL-2}" y="${py(100)+3}" text-anchor="end">100%</text>`,
+    `<text class="dc-tick" x="${PL-2}" y="${py(50)+3}" text-anchor="end">50%</text>`,
+    `<text class="dc-tick" x="${PL-2}" y="${py(0)+3}" text-anchor="end">0%</text>`,
+    `<line class="dc-axis" x1="${PL}" y1="0" x2="${PL}" y2="${ch}"/>`,
+    `<line class="dc-axis" x1="${PL}" y1="${ch}" x2="${W}" y2="${ch}"/>`,
+    `<text class="dc-tick" x="${PL}" y="${H}" text-anchor="middle">0s</text>`,
+    `<text class="dc-tick" x="${W}" y="${H}" text-anchor="end">${dur.toFixed(0)}s</text>`,
+  ].join('');
+
+  return `<div class="dropoff-chart">
+    <div class="dropoff-chart-label">Retentie curve (${sessions.length} sessies)</div>
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      ${ticks}
+      <polyline class="dc-fill" points="${fillPts}"/>
+      <polyline class="dc-line" points="${linePts}"/>
+    </svg>
+  </div>`;
+}
+
+function renderAdminStats() {
+  const grid = document.getElementById('admin-stats-grid');
+  grid.innerHTML = '';
+  const entries = Object.entries(adminVideoStats).sort((a,b) => a[1].index - b[1].index);
+  if (!entries.length) { grid.innerHTML = '<div style="color:#444;font-size:.8rem">No data yet</div>'; return; }
+  entries.forEach(([name, s]) => {
+    const isActive = adminCurrentVideo === name;
+    const card = document.createElement('div');
+    card.className = 'admin-stat-card' + (isActive ? ' active' : '');
+    const short = name.replace(/\.[^.]+$/,'');
+    card.innerHTML = `
+      <h4 title="${name}">${isActive ? '▶ ' : ''}${short}</h4>
+      <div class="admin-stat-row"><span class="sl">Views</span><span class="sv">${s.views}</span></div>
+      <div class="admin-stat-row"><span class="sl">Rewatches</span><span class="sv y">${s.rewatches || 0}</span></div>
+      <div class="admin-stat-row"><span class="sl">Watch time</span><span class="sv">${(s.watchSec/60).toFixed(1)}m</span></div>
+      <div class="admin-stat-row"><span class="sl">Likes</span><span class="sv r">${s.likes}</span></div>
+      <div class="admin-stat-row"><span class="sl">Saves</span><span class="sv">${s.saves}</span></div>
+      <div class="admin-stat-row"><span class="sl">Shares</span><span class="sv">${s.shares||0}</span></div>
+      <div class="admin-stat-row"><span class="sl">Comments</span><span class="sv g">${s.comments}</span></div>
+      <div class="admin-stat-row"><span class="sl">Profiel bezocht</span><span class="sv">${s.profileVisits||0}</span></div>
+      ${buildDropoffChart(s)}
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function updateWatchTimer() {
+  if (!adminWatchStart) return;
+  const secs = Math.floor((Date.now() - adminWatchStart) / 1000);
+  const m = Math.floor(secs / 60), s = secs % 60;
+  document.getElementById('admin-watch-timer').textContent =
+    `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function adminUpdatePreview(videoName) {
+  const previewVid  = document.getElementById('admin-preview-video');
+  const previewLbl  = document.getElementById('admin-preview-label');
+  const placeholder = document.getElementById('admin-preview-placeholder');
+  if (!videoName || !_adminConfig) {
+    previewVid.pause(); previewVid.src = '';
+    placeholder.style.display = 'flex';
+    previewLbl.textContent = '';
+    return;
+  }
+  const v = (_adminConfig.videos || []).find(x => x.name === videoName);
+  if (!v?.url) {
+    placeholder.style.display = 'flex';
+    previewLbl.textContent = '';
+    return;
+  }
+  placeholder.style.display = 'none';
+  previewLbl.textContent = (v.originalName || v.name).replace(/\.[^.]+$/, '');
+  if (previewVid.dataset.src === v.url) return; // already playing this video
+  previewVid.dataset.src = v.url;
+  previewVid.src = v.url;
+  previewVid.load();
+  previewVid.play().catch(() => {});
+}
+
+function endTestAndDownloadAll() {
+  const pids = Object.keys(_participants);
+  if (pids.length <= 1) {
+    endTestAndDownload();
+    setTimeout(() => saveSessionJSON(), 400);
+  } else {
+    // One report per participant, staggered
+    const origStats = adminVideoStats;
+    pids.forEach((pid, i) => {
+      setTimeout(() => {
+        const label = _participants[pid].name || `P${i+1}`;
+        adminVideoStats = _participants[pid].videoStats;
+        endTestAndDownload(label);
+        setTimeout(() => saveSessionJSON(label, _participants[pid].videoStats), 200);
+        adminVideoStats = origStats;
+      }, i * 700);
+    });
+  }
+}
+
+function endTestAndDownload(label) {
+  const completedAt = new Date();
+  const cfg = _adminConfig || {};
+  const tName = (cfg.testName || testName || 'Test') + (label ? `-${label}` : '');
+  const startedAt = cfg.startedAt ? new Date(cfg.startedAt) : null;
+  const testDuration = startedAt ? Math.round((completedAt - startedAt) / 1000) : 0;
+  const vids = cfg.videos || [];
+
+  const line = '─'.repeat(50), dline = '═'.repeat(50);
+  let txt = `${dline}\n  BINGTOK — TESTRAPPORT\n${dline}\n`;
+  txt += `  Testnaam  : ${tName}\n`;
+  txt += `  Datum     : ${completedAt.toLocaleDateString('nl-NL',{day:'2-digit',month:'long',year:'numeric'})}\n`;
+  txt += `  Gestart   : ${startedAt ? startedAt.toLocaleTimeString('nl-NL') : '—'}\n`;
+  txt += `  Afgerond  : ${completedAt.toLocaleTimeString('nl-NL')}\n`;
+  txt += `  Duur      : ${fmtDuration(testDuration)}\n`;
+  txt += `  Video's   : ${vids.length}\n`;
+
+  // Participant info from events
+  const pEv = (_state_events || []).find(e => e.type === 'participant');
+  if (pEv) {
+    txt += `${dline}\n  DEELNEMER\n${dline}\n`;
+    txt += `  Naam      : ${pEv.name}\n`;
+    txt += `  Leeftijd  : ${pEv.age}\n`;
+    txt += `  Geslacht  : ${pEv.gender}\n`;
+  }
+  txt += `${dline}\n\n`;
+
+  // eigen video's eerst, dan tracked filler
+  const sortedVids = [
+    ...vids.filter(v => !v.isTrackedFiller && !v.isFiller),
+    ...vids.filter(v => v.isTrackedFiller),
+  ];
+
+  sortedVids.forEach((v, i) => {
+    const s = adminVideoStats[v.name] || {};
+    const sessions   = s.watchSessions || [];
+    const dur        = s.duration || 0;
+    const totalWatch = s.watchSec || 0;
+    const views      = s.views || 0;
+    const avgSessie  = views ? (totalWatch / views).toFixed(1) : '0';
+
+    // Completion rate: sessions that watched ≥ 90% of duration
+    const completed  = dur > 0 ? sessions.filter(w => w >= dur * 0.9).length : 0;
+    const completePct= views > 0 ? Math.round(completed / views * 100) : 0;
+
+    // Scroll-stop rate: sessions where they watched ≥ 2s (actually engaged)
+    const engaged    = sessions.filter(w => w >= 2).length;
+    const engagePct  = views > 0 ? Math.round(engaged / views * 100) : 0;
+
+    // Drop-off curve: at 25/50/75% of video, how many were still watching
+    const dropoff = dur > 0 ? [0.25, 0.5, 0.75, 1.0].map(pct => {
+      const threshold = dur * pct;
+      const still = sessions.filter(w => w >= threshold).length;
+      return `${Math.round(pct*100)}%→${views>0?Math.round(still/views*100):0}%`;
+    }).join('  ') : '—';
+
+    const label = v.isTrackedFiller ? `FILLER ${i+1 - sortedVids.filter(x=>!x.isTrackedFiller&&!x.isFiller).length}` : `VIDEO ${i+1}`;
+    txt += `${line}\n  ${label}: ${v.name.replace(/\.[^.]+$/,'')}\n${line}\n`;
+    if (v.username)    txt += `  Account        : ${v.username}\n`;
+    if (v.description) txt += `  Beschrijving   : ${v.description}\n`;
+    txt += `  Video duur     : ${dur > 0 ? dur.toFixed(1)+'s' : 'onbekend'}\n`;
+    txt += `\n  VIEWING BEHAVIOR\n`;
+    txt += `  ${'─'.repeat(30)}\n`;
+    txt += `  Weergaven              : ${views}\n`;
+    txt += `  Totale kijktijd        : ${totalWatch.toFixed(1)}s\n`;
+    txt += `  Gem. kijktijd          : ${avgSessie}s per sessie\n\n`;
+
+    txt += `  1. Completion rate     : ${completePct}%`;
+    txt += completed > 0 ? ` (${completed}/${views} sessies volledig)\n` : '\n';
+
+    txt += `  2. Drop-off curve      : ${dropoff}\n`;
+    txt += `     (% video bekeken → % kijkers nog aanwezig)\n\n`;
+
+    txt += `  3. Scroll-stop rate    : ${engagePct}%`;
+    txt += ` (${engaged}/${views} sessies ≥ 2s gekeken)\n\n`;
+
+    txt += `  4. Rewatches           : ${s.loops || 0}x opnieuw afgespeeld\n\n`;
+
+    if (s.pauses && s.pauses.length > 0) {
+      txt += `  5. Pauze momenten      : ${s.pauses.map(t=>t+'s').join(', ')}\n\n`;
+    } else {
+      txt += `  5. Pauze momenten      : geen\n\n`;
+    }
+
+    txt += `  6. Seek gedrag         : ${s.seeks || 0}x gespoeld\n\n`;
+
+    txt += `  7. Video start rate    : ${views > 0 ? '100%' : '0%'} (autoplay bij scroll-stop)\n\n`;
+
+    if (s.firstInteractionSec !== null && s.firstInteractionSec !== undefined) {
+      txt += `  8. Tijd tot 1e actie   : ${s.firstInteractionSec}s\n\n`;
+    } else {
+      txt += `  8. Tijd tot 1e actie   : geen interactie\n\n`;
+    }
+
+    txt += `  ❤️ Likes               : ${s.likes || 0}\n`;
+    txt += `  🔖 Saves               : ${s.saves || 0}\n`;
+    txt += `  ↗️ Shares              : ${s.shares || 0}\n`;
+    txt += `  💬 Comments            : ${s.comments || 0}\n`;
+    txt += `  🧑 Profiel bezocht     : ${s.profileVisits || 0}\n`;
+
+    if (s.commentTexts && s.commentTexts.length) {
+      s.commentTexts.forEach((c, ci) => {
+        txt += `      ${ci + 1}. "${c}"\n`;
+      });
+    }
+
+    txt += `\n`;
+  });
+
+  // Totals (alleen eigen video's)
+  const ownVids  = sortedVids.filter(v => !v.isTrackedFiller && !v.isFiller);
+  const totViews = ownVids.reduce((a,v)=>a+(adminVideoStats[v.name]?.views||0),0);
+  const totWatch = ownVids.reduce((a,v)=>a+(adminVideoStats[v.name]?.watchSec||0),0);
+  const totCmt   = ownVids.reduce((a,v)=>a+(adminVideoStats[v.name]?.comments||0),0);
+  const totSeeks = ownVids.reduce((a,v)=>a+(adminVideoStats[v.name]?.seeks||0),0);
+  const totLoops = ownVids.reduce((a,v)=>a+(adminVideoStats[v.name]?.loops||0),0);
+  txt += `${dline}\n  TOTAAL OVERZICHT\n${dline}\n`;
+  txt += `  Totaal weergaven   : ${totViews}\n`;
+  txt += `  Totale kijktijd    : ${totWatch.toFixed(1)}s\n`;
+  txt += `  Totaal rewatches   : ${totLoops}\n`;
+  txt += `  Totaal seeks       : ${totSeeks}\n`;
+  txt += `  Totaal comments    : ${totCmt}\n`;
+  txt += `${dline}\n  Gegenereerd door BingTok — ${completedAt.toISOString()}\n${dline}\n`;
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}));
+  a.download = `bingtok-${slug(tName)}-${isoDate()}.txt`;
+  a.click();
+}
+
+async function endSession() {
+  if (!confirm('End the session? The phone will go back to the waiting screen.')) return;
+  clearInterval(adminTimerInterval);
+  adminTimerInterval = null;
+  adminWatchStart = null;
+  document.getElementById('admin-watch-timer').textContent = '—';
+  document.getElementById('admin-watch-timer').classList.add('idle');
+  // Reset all active sessions
+  await fetch(api('/api/reset'), { method: 'POST' });
+}
+
+// ═══════════════════════════════════
+// MERGE SESSIONS
+// ═══════════════════════════════════
+let _mergedSessions = []; // array of loaded session-JSON objects
+
+function saveSessionJSON(label, statsOverride) {
+  const cfg   = _adminConfig || {};
+  const tName = (cfg.testName || testName || 'test') + (label ? `-${label}` : '');
+  const stats = statsOverride || adminVideoStats;
+  const payload = {
+    testName: tName,
+    savedAt:  new Date().toISOString(),
+    videos:   (cfg.videos || []).map(v => ({ name: v.name, originalName: v.originalName || v.name, duration: stats[v.name]?.duration || 0 })),
+    stats,
+  };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+  a.download = `bingtok-sessie-${slug(tName)}-${isoDate()}.json`;
+  a.click();
+}
+
+function loadMergeFiles(input) {
+  const files = Array.from(input.files);
+  let loaded = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.stats) {
+          _mergedSessions.push(data);
+          loaded++;
+          if (loaded === files.length) renderMerged();
+        }
+      } catch { /* ignore bad files */ }
+    };
+    reader.readAsText(file);
+  });
+  input.value = '';
+}
+
+function clearMerged() {
+  _mergedSessions = [];
+  document.getElementById('merge-stats-grid').innerHTML = '';
+  document.getElementById('merge-status').textContent = '';
+  document.getElementById('merge-clear-btn').style.display = 'none';
+}
+
+function renderMerged() {
+  const grid = document.getElementById('merge-stats-grid');
+  const statusEl = document.getElementById('merge-status');
+  const clearBtn = document.getElementById('merge-clear-btn');
+  if (!_mergedSessions.length) { grid.innerHTML = ''; statusEl.textContent = ''; return; }
+
+  // Collect all video names across all sessions
+  const allNames = new Set();
+  _mergedSessions.forEach(s => Object.keys(s.stats || {}).forEach(n => allNames.add(n)));
+
+  const merged = {};
+  allNames.forEach(name => {
+    merged[name] = { name, views: 0, watchSec: 0, likes: 0, saves: 0, shares: 0, comments: 0, watchSessions: [], duration: 0 };
+  });
+
+  _mergedSessions.forEach(session => {
+    Object.entries(session.stats || {}).forEach(([name, s]) => {
+      const m = merged[name];
+      m.views    += s.views || 0;
+      m.watchSec += s.watchSec || 0;
+      m.likes    += s.likes || 0;
+      m.saves    += s.saves || 0;
+      m.shares   += s.shares || 0;
+      m.comments += s.comments || 0;
+      if (s.duration) m.duration = Math.max(m.duration, s.duration);
+      (s.watchSessions || []).forEach(ws => m.watchSessions.push(ws));
+    });
+  });
+
+  const testNames = _mergedSessions.map(s => s.testName || '?').join(', ');
+  statusEl.textContent = `${_mergedSessions.length} sessies samengevoegd: ${testNames}`;
+  clearBtn.style.display = '';
+
+  grid.innerHTML = '';
+  Object.values(merged).forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'admin-stat-card';
+    const avgSec = s.views ? (s.watchSec / s.views).toFixed(1) : '0';
+    card.innerHTML = `
+      <h4 title="${s.name}">${s.name.replace(/\.[^.]+$/, '')}</h4>
+      <div class="admin-stat-row"><span class="sl">Views (totaal)</span><span class="sv">${s.views}</span></div>
+      <div class="admin-stat-row"><span class="sl">Sessies</span><span class="sv">${s.watchSessions.length}</span></div>
+      <div class="admin-stat-row"><span class="sl">Gem. kijktijd</span><span class="sv">${avgSec}s</span></div>
+      <div class="admin-stat-row"><span class="sl">Likes</span><span class="sv r">${s.likes}</span></div>
+      <div class="admin-stat-row"><span class="sl">Saves</span><span class="sv">${s.saves}</span></div>
+      <div class="admin-stat-row"><span class="sl">Comments</span><span class="sv g">${s.comments}</span></div>
+      ${buildDropoffChart(s)}
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════
+const _dashSessions = []; // { testName, savedAt, stats: {videoName: {...}} }
+
+function dashLoadFiles(files) {
+  let pending = files.length;
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.stats) {
+          data._filename = file.name;
+          _dashSessions.push(data);
+        }
+      } catch { /* skip */ }
+      if (--pending === 0) renderDashboard();
+    };
+    reader.readAsText(file);
+  });
+}
+
+function dashRemoveSession(idx) {
+  _dashSessions.splice(idx, 1);
+  renderDashboard();
+}
+
+function dashBuildMerged() {
+  // Build originalName lookup from all sessions' videos arrays
+  const nameMap = {}; // id -> originalName
+  _dashSessions.forEach(session => {
+    (session.videos || []).forEach(v => {
+      if (v.originalName && v.name) nameMap[v.name] = v.originalName;
+    });
+  });
+
+  const allNames = new Set();
+  _dashSessions.forEach(s => Object.keys(s.stats || {}).forEach(n => allNames.add(n)));
+
+  const merged = {};
+  allNames.forEach(name => {
+    merged[name] = {
+      name,
+      displayName: nameMap[name] || name,
+      views:0, watchSec:0, likes:0, saves:0, shares:0, comments:0,
+      watchSessions:[], duration:0,
+      perTest: [],       // [{testName, watchSessions, views, likes, ...}]
+      commentTexts:[],
+    };
+  });
+
+  _dashSessions.forEach(session => {
+    Object.entries(session.stats || {}).forEach(([name, s]) => {
+      const m = merged[name];
+      m.views    += s.views    || 0;
+      m.watchSec += s.watchSec || 0;
+      m.likes    += s.likes    || 0;
+      m.saves    += s.saves    || 0;
+      m.shares   += s.shares   || 0;
+      m.comments += s.comments || 0;
+      if (s.duration) m.duration = Math.max(m.duration, s.duration);
+      (s.watchSessions || []).forEach(ws => m.watchSessions.push(ws));
+      if (s.commentTexts) m.commentTexts.push(...s.commentTexts);
+      m.perTest.push({
+        testName: session.testName || '?',
+        savedAt:  session.savedAt,
+        views:    s.views || 0,
+        watchSessions: s.watchSessions || [],
+        watchSec: s.watchSec || 0,
+        likes: s.likes || 0, saves: s.saves || 0,
+        comments: s.comments || 0, shares: s.shares || 0,
+        duration: s.duration || 0,
+      });
+    });
+  });
+  return merged;
+}
+
+function renderDashboard() {
+  // Loaded tags
+  const list = document.getElementById('dash-loaded-list');
+  list.innerHTML = '';
+  _dashSessions.forEach((s, i) => {
+    const tag = document.createElement('div');
+    tag.className = 'dash-tag';
+    const date = s.savedAt ? new Date(s.savedAt).toLocaleDateString('nl-NL', { day:'2-digit', month:'short' }) : '';
+    tag.innerHTML = `<span>${s.testName || s._filename}${date ? ' · ' + date : ''}</span><button onclick="dashRemoveSession(${i})" title="Verwijder">✕</button>`;
+    list.appendChild(tag);
+  });
+
+  const summaryCard = document.getElementById('dash-summary-card');
+  const videosCard  = document.getElementById('dash-videos-card');
+  const emptyEl     = document.getElementById('dash-empty');
+
+  if (!_dashSessions.length) {
+    summaryCard.style.display = videosCard.style.display = 'none';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  summaryCard.style.display = videosCard.style.display = '';
+
+  const merged    = dashBuildMerged();
+  const allMerged = Object.values(merged);
+
+  // Summary tiles
+  const totalViews    = allMerged.reduce((a, m) => a + m.views, 0);
+  const totalSessions = allMerged.reduce((a, m) => a + m.watchSessions.length, 0);
+  const totalWatch    = allMerged.reduce((a, m) => a + m.watchSec, 0);
+  const totalLikes    = allMerged.reduce((a, m) => a + m.likes, 0);
+  const totalSaves    = allMerged.reduce((a, m) => a + m.saves, 0);
+  const totalComments = allMerged.reduce((a, m) => a + m.comments, 0);
+  const avgSec        = totalSessions ? (totalWatch / totalSessions).toFixed(1) : '—';
+
+  document.getElementById('dash-summary-grid').innerHTML = [
+    ['Tests', _dashSessions.length],
+    ["Video's", allMerged.length],
+    ['Totaal views', totalViews],
+    ['Totaal sessies', totalSessions],
+    ['Gem. kijktijd', avgSec + 's'],
+    ['Likes', totalLikes],
+    ['Saves', totalSaves],
+    ['Comments', totalComments],
+  ].map(([label, value]) => `
+    <div class="dash-summary-tile">
+      <div class="dst-label">${label}</div>
+      <div class="dst-value">${value}</div>
+    </div>
+  `).join('');
+
+  renderDashVideos();
+}
+
+function renderDashVideos() {
+  const merged   = dashBuildMerged();
+  const allMerged = Object.values(merged);
+
+  const search   = (document.getElementById('dash-filter-search')?.value || '').toLowerCase();
+  const sortBy   = document.getElementById('dash-filter-sort')?.value || 'scrollstop';
+  const typeFilter = document.getElementById('dash-filter-type')?.value || 'all';
+
+  // Compute scores for all videos first (needed for top-3 badge)
+  const scored = allMerged.map(m => {
+    const avgS        = m.watchSessions.length ? m.watchSec / m.watchSessions.length : 0;
+    const completed   = m.duration > 0 ? m.watchSessions.filter(w => w >= m.duration * 0.9).length : 0;
+    const completePct = m.watchSessions.length ? Math.round(completed / m.watchSessions.length * 100) : 0;
+    const engaged     = m.watchSessions.filter(w => w >= 2).length;
+    const engagePct   = m.watchSessions.length ? Math.round(engaged / m.watchSessions.length * 100) : 0;
+    // Detect test vs filler: test videos have no leading number prefix like "8-" or "34-"
+    const isTest = !/^\d+-/.test(m.displayName);
+    return { m, avgS, completePct, engagePct, isTest };
+  });
+
+  // Filter
+  let filtered = scored.filter(({ m, isTest }) => {
+    if (search && !m.displayName.toLowerCase().includes(search)) return false;
+    if (typeFilter === 'test'   && !isTest) return false;
+    if (typeFilter === 'filler' &&  isTest) return false;
+    return true;
+  });
+
+  // Sort
+  const sortKey = {
+    scrollstop:  s => -s.engagePct,
+    completion:  s => -s.completePct,
+    watchtime:   s => -s.avgS,
+    likes:       s => -s.m.likes,
+    saves:       s => -s.m.saves,
+    comments:    s => -s.m.comments,
+    shares:      s => -s.m.shares,
+    views:       s => -s.m.views,
+  }[sortBy] || (s => -s.engagePct);
+  filtered.sort((a, b) => sortKey(a) - sortKey(b));
+
+  // Top-3 indices (by current sort)
+  const topNames = new Set(filtered.slice(0, 3).map(s => s.m.name));
+
+  // Render
+  const videoGrid = document.getElementById('dash-video-grid');
+  videoGrid.innerHTML = '';
+
+  filtered.forEach(({ m, avgS, completePct, engagePct }, rank) => {
+    const shortName = m.displayName.replace(/\.[^.]+$/, '');
+    const isTop     = topNames.has(m.name);
+    const badge     = isTop ? `<span class="dash-top-badge">#${rank + 1}</span>` : '';
+
+    const card = document.createElement('div');
+    card.className = 'admin-stat-card dash-video-card' + (isTop ? ' top-performer' : '');
+    card.style.cursor = 'pointer';
+    card.title = 'Klik voor details';
+    card.innerHTML = `
+      <h4 title="${m.displayName}">${shortName}${badge}</h4>
+      <div class="admin-stat-row"><span class="sl">Sessies</span><span class="sv">${m.watchSessions.length}</span></div>
+      <div class="admin-stat-row"><span class="sl">Views</span><span class="sv">${m.views}</span></div>
+      <div class="admin-stat-row"><span class="sl">Gem. kijktijd</span><span class="sv">${avgS.toFixed(1)}s</span></div>
+      <div class="admin-stat-row"><span class="sl">Completion</span><span class="sv">${completePct}%</span></div>
+      <div class="admin-stat-row"><span class="sl">Scroll-stop</span><span class="sv">${engagePct}%</span></div>
+      <div class="admin-stat-row"><span class="sl">Likes</span><span class="sv r">${m.likes}</span></div>
+      <div class="admin-stat-row"><span class="sl">Saves</span><span class="sv">${m.saves}</span></div>
+      <div class="admin-stat-row"><span class="sl">Comments</span><span class="sv g">${m.comments}</span></div>
+      ${buildDropoffChart(m)}
+      <div style="margin-top:10px;font-size:.72rem;color:#444;text-align:center">Klik voor details →</div>
+    `;
+    card.addEventListener('click', () => openDashDetail(m));
+    videoGrid.appendChild(card);
+  });
+
+  const countEl = document.getElementById('dash-filter-count');
+  if (countEl) countEl.textContent = `${filtered.length} van ${allMerged.length} video's`;
+}
+
+function openDashDetail(m) {
+  const modal = document.getElementById('dash-detail-modal');
+  const body  = document.getElementById('dash-detail-body');
+  const shortName = m.displayName.replace(/\.[^.]+$/, '');
+
+  const avgS = m.watchSessions.length ? (m.watchSec / m.watchSessions.length).toFixed(1) : '0';
+  const completed  = m.duration > 0 ? m.watchSessions.filter(w => w >= m.duration * 0.9).length : 0;
+  const completePct= m.watchSessions.length ? Math.round(completed / m.watchSessions.length * 100) : 0;
+  const engaged    = m.watchSessions.filter(w => w >= 2).length;
+  const engagePct  = m.watchSessions.length ? Math.round(engaged / m.watchSessions.length * 100) : 0;
+
+  // Drop-off at 25/50/75/100%
+  const dropoff = m.duration > 0 ? [0.25,0.5,0.75,1.0].map(pct => {
+    const still = m.watchSessions.filter(w => w >= m.duration * pct).length;
+    const perc  = m.watchSessions.length ? Math.round(still / m.watchSessions.length * 100) : 0;
+    return `<div class="ddd-tile"><div class="ddd-pct">${perc}%</div><div class="ddd-lbl">nog aanwezig @${Math.round(pct*100)}%</div></div>`;
+  }).join('') : '';
+
+  // Per-test breakdown
+  const perTestRows = m.perTest.map(pt => {
+    const ptAvg = pt.watchSessions.length ? (pt.watchSec / pt.watchSessions.length).toFixed(1) : '0';
+    const date  = pt.savedAt ? new Date(pt.savedAt).toLocaleDateString('nl-NL', {day:'2-digit',month:'short'}) : '';
+    return `
+      <div class="ddd-test-row">
+        <div class="ddd-test-name">${pt.testName}${date ? ' <span style="color:#444">· '+date+'</span>' : ''}</div>
+        <div class="ddd-test-stats">
+          <span>${pt.watchSessions.length} sess.</span>
+          <span>${ptAvg}s gem.</span>
+          <span class="${pt.likes?'r':''}">❤ ${pt.likes}</span>
+          <span class="${pt.saves?'':''}">🔖 ${pt.saves}</span>
+          <span class="${pt.comments?'g':''}">💬 ${pt.comments}</span>
+        </div>
+        ${buildDropoffChart({ watchSessions: pt.watchSessions, duration: pt.duration || m.duration })}
+      </div>`;
+  }).join('');
+
+  const comments = m.commentTexts.length
+    ? `<div class="ddd-section-title">Opmerkingen</div>` + m.commentTexts.map(c => `<div class="ddd-comment">"${c}"</div>`).join('')
+    : '';
+
+  body.innerHTML = `
+    <div class="ddd-video-title">${shortName}</div>
+    <div class="ddd-filename" style="color:#444;font-size:.75rem;margin-bottom:16px">${m.name}</div>
+
+    <div class="ddd-section-title">Gecombineerde retentie (${m.watchSessions.length} sessies)</div>
+    <div style="margin-bottom:16px">${buildDropoffChart(m) || '<div style="color:#444;font-size:.8rem">Te weinig data voor retentie curve</div>'}</div>
+
+    <div class="ddd-section-title">Drop-off punten</div>
+    <div class="ddd-dropoff-row" style="margin-bottom:16px">${dropoff || '<span style="color:#444;font-size:.8rem">Geen video duur bekend</span>'}</div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:20px">
+      ${[
+        ['Gem. kijktijd', avgS+'s'],
+        ['Completion', completePct+'%'],
+        ['Scroll-stop', engagePct+'%'],
+        ['Likes', m.likes],
+        ['Saves', m.saves],
+        ['Comments', m.comments],
+        ['Shares', m.shares],
+      ].map(([l,v]) => `<div class="dash-summary-tile"><div class="dst-label">${l}</div><div class="dst-value" style="font-size:1.1rem">${v}</div></div>`).join('')}
+    </div>
+
+    <div class="ddd-section-title">Per test</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">${perTestRows}</div>
+
+    ${comments}
+  `;
+
+  modal.classList.add('show');
+}
+
+function closeDashDetail() {
+  document.getElementById('dash-detail-modal').classList.remove('show');
+}
+
+// Dashboard drag-drop + file input wiring (runs after DOM ready)
+document.addEventListener('DOMContentLoaded', () => {
+  const dz  = document.getElementById('dash-drop-zone');
+  const inp = document.getElementById('dash-file-input');
+  if (!dz || !inp) return;
+  inp.addEventListener('change', () => { dashLoadFiles(inp.files); inp.value = ''; });
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', ()  => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    dashLoadFiles(e.dataTransfer.files);
+  });
+});
+
+// ═══════════════════════════════════
+// SCREEN 4 — FEED (phone test)
+// ═══════════════════════════════════
+function buildFeed() {
+  const feed = document.getElementById('feed');
+  feed.innerHTML = '';
+  if (feedObserver) feedObserver.disconnect();
+
+  // Unmute na eerste tap — browsers staan audio toe na user gesture
+  const unmuteOnce = () => {
+    if (globalMuted) setMute(false);
+    feed.removeEventListener('touchstart', unmuteOnce);
+    feed.removeEventListener('click', unmuteOnce);
+  };
+  feed.addEventListener('touchstart', unmuteOnce, { once: true });
+  feed.addEventListener('click', unmuteOnce, { once: true });
+
+  feedObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const slide = entry.target;
+      const vid   = slide.querySelector('video');
+      const idx   = +slide.dataset.idx;
+      if (entry.isIntersecting) {
+        vid.preload = 'auto';
+        vid.play().catch(() => {});
+        slide.classList.add('playing');
+        startWatch(idx);
+        currentIdx = idx;
+        saveSessionState();
+        // notify admin preview for all videos (including fillers)
+        postEvent('now_playing', { videoIndex: idx, videoName: videos[idx]?.name, isFiller: videos[idx]?.isFiller || false });
+        // preload next 2 videos
+        [idx + 1, idx + 2].forEach(ni => {
+          const ns = feed.querySelector(`.slide[data-idx="${ni}"]`);
+          if (ns) { const nv = ns.querySelector('video'); if (nv && nv.preload !== 'auto') { nv.preload = 'auto'; nv.load(); } }
+        });
+      } else {
+        vid.pause();
+        vid.currentTime = 0;
+        slide.classList.remove('playing');
+        endWatch(idx, true);
+        if (videos[idx]) videos[idx]._rewatches = (videos[idx]._rewatches || 0) + 1;
+      }
+    });
+  }, { threshold: 0.6 });
+
+  videos.forEach((v, i) => {
+    const slide = buildSlide(v, i);
+    feed.appendChild(slide);
+    feedObserver.observe(slide);
+  });
+
+  // End slide
+  const endSlide = buildEndSlide();
+  feed.appendChild(endSlide);
+
+  const endObserver = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      endWatch(currentIdx, false);
+      postEvent('test_complete', {});
+      renderEndSlide(endSlide);
+    }
+  }, { threshold: 0.6 });
+  endObserver.observe(endSlide);
+}
+
+function buildEndSlide() {
+  const slide = document.createElement('div');
+  slide.className = 'slide end-slide';
+  slide.dataset.idx = videos.length;
+  slide.innerHTML = `
+    <div class="end-slide-inner">
+      <div class="end-logo">Bing<span>Tok</span></div>
+      <h2>Dit was het einde van de test</h2>
+      <p>Laat even weten aan Bing dat je klaar bent.</p>
+      <div id="end-fav-section" style="display:none">
+        <div class="end-fav-title">Welke video vond je het leukst?</div>
+      </div>
+    </div>
+  `;
+  return slide;
+}
+
+function renderEndSlide(slide) {
+  slide.querySelector('#end-fav-section').style.display = '';
+}
+
+function buildSlide(v, i) {
+  getVideoStats(v.name);
+
+  const slide = document.createElement('div');
+  slide.className = 'slide'; slide.dataset.idx = i;
+
+  const vid = document.createElement('video');
+  vid.src = v.url; vid.loop = true; vid.muted = true; // altijd gedempt starten — mobiel blokkeert autoplay met geluid
+  vid.playsInline = true; vid.preload = 'none';
+
+  // Toon laad-indicator als video te lang wacht
+  vid.addEventListener('waiting', () => slide.classList.add('buffering'));
+  vid.addEventListener('playing', () => slide.classList.remove('buffering'));
+  vid.addEventListener('error', () => {
+    slide.classList.remove('buffering');
+    if (!slide.querySelector('.vid-error')) {
+      const err = document.createElement('div');
+      err.className = 'vid-error';
+      err.textContent = 'Video kon niet laden — scroll door';
+      slide.appendChild(err);
+    }
+  });
+
+  const isFiller = !!v.isFiller;
+
+  // Send video duration once loaded
+  vid.addEventListener('loadedmetadata', () => {
+    if (!isFiller) {
+      const dur = +vid.duration.toFixed(2);
+      postEvent('video_meta', { videoIndex: i, videoName: v.name, duration: dur });
+      updateVideoStats(v.name, s => { s._duration = dur; });
+    }
+  });
+
+  // Pause tracking — only intentional taps, not swipe-away
+  v._intentionalPause = false;
+  vid.addEventListener('pause', () => {
+    if (v._intentionalPause && !vid.ended && !isFiller) {
+      postEvent('pause', { videoIndex: i, videoName: v.name, videoTime: +vid.currentTime.toFixed(1) });
+    }
+    v._intentionalPause = false;
+  });
+
+  // Loop (rewatch) detection
+  let _lastTime = 0;
+  vid.addEventListener('timeupdate', () => {
+    if (vid.currentTime < _lastTime - 1 && !isFiller) {
+      postEvent('loop', { videoIndex: i, videoName: v.name });
+    }
+    _lastTime = vid.currentTime;
+  });
+
+  // Flash overlay
+  const flash = document.createElement('div');
+  flash.className = 'play-flash';
+  flash.innerHTML = '<div class="play-flash-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>';
+  let clickTimer = null;
+  vid.addEventListener('click', () => {
+    if (clickTimer) {
+      // double-click → like
+      clearTimeout(clickTimer);
+      clickTimer = null;
+      if (!v._liked) likeBtn.click();
+      // heart burst animation
+      const heart = document.createElement('div');
+      heart.textContent = '❤️';
+      heart.style.cssText = 'position:absolute;font-size:5rem;pointer-events:none;animation:heartBurst .7s ease-out forwards;top:40%;left:50%;transform:translate(-50%,-50%);z-index:99';
+      slide.appendChild(heart);
+      setTimeout(() => heart.remove(), 700);
+    } else {
+      clickTimer = setTimeout(() => { clickTimer = null; togglePlay(vid, flash, v); }, 220);
+    }
+  });
+
+  // Progress bar / scrubber
+  const pw = document.createElement('div'); pw.className = 'progress-wrap';
+  const track = document.createElement('div'); track.className = 'progress-track';
+  const pb = document.createElement('div'); pb.className = 'progress-bar';
+  const thumb = document.createElement('div'); thumb.className = 'progress-thumb';
+  track.append(pb, thumb);
+  pw.appendChild(track);
+
+  vid.addEventListener('timeupdate', () => {
+    if (!vid.duration) return;
+    const pct = (vid.currentTime / vid.duration * 100);
+    pb.style.width = pct + '%';
+    thumb.style.left = pct + '%';
+  });
+
+  let scrubbing = false;
+  let scrubWasPaused = false;
+  let scrubStartTime = 0;
+
+  function scrubTo(clientX) {
+    const rect = pw.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    vid.currentTime = pct * (vid.duration || 0);
+    pb.style.width   = (pct * 100) + '%';
+    thumb.style.left = (pct * 100) + '%';
+  }
+
+  function startScrub(clientX) {
+    scrubbing = true;
+    scrubWasPaused = vid.paused;
+    scrubStartTime = vid.currentTime;
+    vid.pause();
+    pw.classList.add('scrubbing');
+    scrubTo(clientX);
+  }
+
+  function endScrub(clientX) {
+    if (!scrubbing) return;
+    scrubbing = false;
+    scrubTo(clientX);
+    pw.classList.remove('scrubbing');
+    if (!scrubWasPaused) vid.play().catch(() => {});
+    postEvent('seek', { videoIndex: i, videoName: vname, from: +scrubStartTime.toFixed(1), to: +vid.currentTime.toFixed(1) });
+  }
+
+  // Mouse
+  pw.addEventListener('mousedown', e => { e.stopPropagation(); startScrub(e.clientX); });
+  window.addEventListener('mousemove', e => { if (scrubbing) scrubTo(e.clientX); });
+  window.addEventListener('mouseup',   e => { if (scrubbing) endScrub(e.clientX); });
+
+  // Touch
+  pw.addEventListener('touchstart', e => { e.stopPropagation(); e.preventDefault(); startScrub(e.touches[0].clientX); }, { passive: false });
+  window.addEventListener('touchmove',  e => { if (scrubbing) { e.preventDefault(); scrubTo(e.touches[0].clientX); } }, { passive: false });
+  window.addEventListener('touchend',   e => { if (scrubbing) endScrub(e.changedTouches[0].clientX); });
+
+  // Action bar — comment only
+  const bar = document.createElement('div'); bar.className = 'action-bar';
+
+  // ── PFP ──
+  const pfpDiv = document.createElement('div'); pfpDiv.className = 'action-pfp';
+  if (v.pfpDataUrl) { const img = document.createElement('img'); img.src = v.pfpDataUrl; pfpDiv.appendChild(img); }
+  else pfpDiv.textContent = '👤';
+  pfpDiv.style.position = 'relative';
+  const followDot = document.createElement('div'); followDot.className = 'follow-dot'; followDot.textContent = '+';
+  pfpDiv.appendChild(followDot);
+  pfpDiv.addEventListener('click', e => { e.stopPropagation(); openProfile(v, i); });
+  bar.appendChild(pfpDiv);
+
+  const vname = v.name || v.url || `video_${i}`;  // guaranteed non-undefined key
+
+  // ── Like ──
+  const likeItem = document.createElement('div'); likeItem.className = 'action-item';
+  const likeBtn  = document.createElement('button'); likeBtn.className = 'action-btn like-btn';
+  likeBtn.innerHTML = heartSvg(false);
+  const likeCount = document.createElement('div'); likeCount.className = 'action-count'; likeCount.textContent = fmtCount(v.likes);
+  likeBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    v._liked = !v._liked;
+    likeBtn.innerHTML = heartSvg(v._liked);
+    likeCount.textContent = fmtCount(v._liked ? v.likes + 1 : v.likes);
+    if (!isFiller) {
+      updateVideoStats(vname, s => { if (v._liked) s.likes.push(new Date().toISOString()); else s.likes.pop(); });
+      postEvent('like', { videoName: vname, videoIndex: i, liked: v._liked });
+    }
+  });
+  likeItem.append(likeBtn, likeCount); bar.appendChild(likeItem);
+
+  // ── Comment ──
+  const cmtItem = document.createElement('div'); cmtItem.className = 'action-item';
+  const cmtBtn  = document.createElement('button'); cmtBtn.className = 'action-btn comment-btn';
+  cmtBtn.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  const cmtCount = document.createElement('div'); cmtCount.className = 'action-count'; cmtCount.textContent = fmtCount(v.comments);
+  cmtBtn.addEventListener('click', e => { e.stopPropagation(); openCommentDrawer(i); });
+  cmtItem.append(cmtBtn, cmtCount); bar.appendChild(cmtItem);
+
+  // ── Share ──
+  const shrItem = document.createElement('div'); shrItem.className = 'action-item';
+  const shrBtn  = document.createElement('button'); shrBtn.className = 'action-btn share-btn';
+  shrBtn.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="3 11 3 22 21 22 21 11"/><path d="M16 6l-4-4-4 4"/><line x1="12" y1="2" x2="12" y2="16"/></svg>`;
+  const shrCount = document.createElement('div'); shrCount.className = 'action-count'; shrCount.textContent = fmtCount(v.shares);
+  shrBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    openSharePopup(vname, i);
+  });
+  shrItem.append(shrBtn, shrCount); bar.appendChild(shrItem);
+
+  // ── Save ──
+  const savItem = document.createElement('div'); savItem.className = 'action-item';
+  const savBtn  = document.createElement('button'); savBtn.className = 'action-btn save-btn';
+  savBtn.innerHTML = bookmarkSvg(false);
+  const savCount = document.createElement('div'); savCount.className = 'action-count'; savCount.textContent = fmtCount(v.saves);
+  savBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    v._saved = !v._saved;
+    savBtn.innerHTML = bookmarkSvg(v._saved);
+    savCount.textContent = fmtCount(v._saved ? v.saves + 1 : v.saves);
+    if (!isFiller) {
+      updateVideoStats(vname, s => { if (v._saved) s.saves.push(new Date().toISOString()); else s.saves.pop(); });
+      postEvent('save', { videoName: vname, videoIndex: i, saved: v._saved });
+    }
+  });
+  savItem.append(savBtn, savCount); bar.appendChild(savItem);
+
+  v._vid = vid; v._likeBtn = likeBtn; v._savBtn = savBtn;
+
+  const info = document.createElement('div'); info.className = 'slide-info';
+  const username = document.createElement('div'); username.className = 'slide-username';
+  username.dataset.videoUrl = v.url;
+  username.textContent = v.username || '@creator';
+  username.style.cursor = 'pointer';
+  username.addEventListener('click', e => { e.stopPropagation(); openProfile(v, i); });
+  const desc = document.createElement('div'); desc.className = 'slide-desc'; desc.textContent = v.description || '';
+  const moreBtn = document.createElement('button'); moreBtn.className = 'more-btn'; moreBtn.textContent = 'meer weergeven...';
+  moreBtn.style.display = 'none';
+  // show after render so we can check if text overflows
+  requestAnimationFrame(() => {
+    if (desc.scrollHeight > desc.clientHeight + 2) moreBtn.style.display = 'block';
+  });
+  moreBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const expanded = desc.classList.toggle('expanded');
+    moreBtn.textContent = expanded ? 'minder weergeven' : 'meer weergeven...';
+  });
+  const music = document.createElement('div'); music.className = 'music-bar';
+  music.innerHTML = `<div class="music-disc">♪</div><span>Original sound · ${(v.username||'@creator').replace('@','')}</span>`;
+  info.append(username, desc, moreBtn, music);
+
+  // Left-swipe → open profile
+  let _swipeStartX = 0, _swipeStartY = 0;
+  slide.addEventListener('touchstart', e => {
+    _swipeStartX = e.touches[0].clientX;
+    _swipeStartY = e.touches[0].clientY;
+  }, { passive: true });
+  slide.addEventListener('touchend', e => {
+    if (scrubbing) return;
+    const dx = e.changedTouches[0].clientX - _swipeStartX;
+    const dy = e.changedTouches[0].clientY - _swipeStartY;
+    if (dx < -60 && Math.abs(dy) < 60) openProfile(v, i);
+  }, { passive: true });
+
+  slide.append(vid, flash, bar, info, pw);
+  return slide;
+}
+
+function heartSvg(f) {
+  return f ? `<svg width="28" height="28" viewBox="0 0 24 24" fill="#fe2c55" stroke="#fe2c55" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
+       : `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
+}
+
+function bookmarkSvg(f) {
+  return f ? `<svg width="26" height="26" viewBox="0 0 24 24" fill="#ffd60a" stroke="#ffd60a" stroke-width="2"><polygon points="19 21 12 16 5 21 5 3 19 3 19 21"/></svg>`
+           : `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polygon points="19 21 12 16 5 21 5 3 19 3 19 21"/></svg>`;
+}
+
+// ═══════════════════════════════════
+// PLAY / MUTE
+// ═══════════════════════════════════
+function togglePlay(vid, flash, v) {
+  if (vid.paused) { vid.play(); flash.classList.remove('show'); }
+  else { if (v) v._intentionalPause = true; vid.pause(); flash.classList.add('show'); setTimeout(() => flash.classList.remove('show'), 700); }
+}
+
+function setMute(muted) {
+  globalMuted = muted;
+  videos.forEach(v => { if (v._vid) v._vid.muted = muted; });
+  const mb = document.getElementById('mute-badge');
+  mb.textContent = muted ? '🔇' : '🔊'; mb.style.opacity = '1';
+  setTimeout(() => { mb.style.opacity = '0'; }, 800);
+}
+
+// ═══════════════════════════════════
+// COMMENT DRAWER
+// ═══════════════════════════════════
+const _FAKE_COMMENTS = [
+  'dit is echt te goed 😭🔥','bro stop 💀','hoe??? gewoon hoe','ik kan dit de hele dag kijken','precies wat ik nodig had vandaag 😂',
+  'dit verdient zoveel meer views','heb dit al 10x teruggekeken','laat me niet lachen 💀💀','goat gedrag','dat laatste stukje omg',
+  'nee maar serieus dit is top','dingen die ik niet wist dat ik nodig had','held van de dag 🙌','dit klopt gewoon echt','ja dit','stuur dit naar je beste vriend',
+  'mijn vriend snapt dit niet maar ik wel','hoe is dit reeel','dit content houdt me hier','subscribe gegaan lol',
+  'first time ik iets dubbel bekijk','lmao precies dit','ik ga dit naar iedereen sturen','nee dit is te grappig 😭',
+  'relatable op een andere level','die reactie op het einde hahaha','dit is mijn persoonlijkheid in één video','echt te mooi',
+  'dit is de beste tiktok ooit gemaakt','waarom kom ik hier nu pas achter','mijn scherm heeft dit al 7x gezien','zeg niks meer dit zegt alles',
+  'ik had dit nodig vandaag ❤️','dit is er 1 van de beste','hoe bestaat dit soort content','dit is waarom ik tiktok niet kan sluiten',
+  'echt te leuk 😂','dat eindigt perfect','iconic moment','dit is cinema','bro dit is kunst',
+  'ik heb dit aan iedereen gestuurd','de timing is perfect','geen woorden gewoon kijken','mijn ogen zijn gezegend',
+  'dit is waarom je vrienden naar je sturen','legendarisch','ga dit bewaren voor altijd','ok maar serieus hoe',
+  'reactie van mijn moeder: 😂😂😂','al mijn hersencellen zijn weg','ik ben echt gevallen van het lachen',
+  'herhaling op herhaling op herhaling','dit verdient een oscar','ok ik ben echt weg nu 😭','nieuw favoriete account',
+];
+
+const _FAKE_NAMES = [
+  'stef.vnl','xjordi','roos_daily','timdvlaming','noa.xo','lieke_22','daan.stuff','fleur.jpg',
+  'bram_official','isa.moves','milan.tok','sofie_xo','kees.lol','fenna_real','thijs_22',
+  'emma.daily','ruben.clip','lena.vibes','jasper.nl','anne_xo','max.daily','sara_tok',
+];
+
+function generateFakeComments(v) {
+  // seed count based on like count so popular videos have more comments
+  const base = Math.min(v.comments || 40, 200);
+  const count = randInt(Math.max(4, Math.floor(base * 0.04)), Math.max(8, Math.floor(base * 0.12)));
+  const pool  = [..._FAKE_COMMENTS].sort(() => Math.random() - .5);
+  const out   = [];
+  for (let i = 0; i < count; i++) {
+    const likes = randInt(0, Math.floor((v.likes || 1000) * 0.03));
+    out.push({
+      user: _FAKE_NAMES[Math.floor(Math.random() * _FAKE_NAMES.length)] + randInt(1,99),
+      text: pool[i % pool.length],
+      likes,
+    });
+  }
+  return out;
+}
+
+function openCommentDrawer(idx) {
+  commentTargetIdx = idx;
+  const v = videos[idx];
+  const list = document.getElementById('comment-list');
+  list.innerHTML = '';
+
+  // Real (participant-submitted) comments first
+  const s = loadStats()[v.name];
+  const realComments = (s && s.comments) || [];
+  realComments.forEach(c => {
+    const el = document.createElement('div');
+    el.style.cssText = 'display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #1e1e1e;align-items:flex-start';
+    el.innerHTML = `<div style="width:34px;height:34px;border-radius:50%;background:#fe2c55;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0">jij</div>
+      <div style="flex:1"><div style="font-size:.78rem;color:#fe2c55;font-weight:700;margin-bottom:2px">jij</div>
+      <div style="font-size:.84rem;color:#fff">${c.text}</div></div>`;
+    list.appendChild(el);
+  });
+
+  // Fake comments
+  if (!v._fakeComments) v._fakeComments = generateFakeComments(v);
+  v._fakeComments.forEach(c => {
+    const el = document.createElement('div');
+    el.style.cssText = 'display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #1e1e1e;align-items:flex-start';
+    el.innerHTML = `<div style="width:34px;height:34px;border-radius:50%;background:#${Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0').slice(0,3)}445;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden">${c.user.slice(0,2)}</div>
+      <div style="flex:1"><div style="font-size:.78rem;color:#aaa;font-weight:700;margin-bottom:2px">@${c.user}</div>
+      <div style="font-size:.84rem;color:#eee">${c.text}</div></div>
+      ${c.likes > 0 ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.7rem;color:#888">❤️<span>${fmtCount(c.likes)}</span></div>` : ''}`;
+    list.appendChild(el);
+  });
+
+  if (!list.children.length) {
+    list.innerHTML = '<div style="color:#555;font-size:.8rem;text-align:center;padding:12px">No comments yet</div>';
+  }
+  document.getElementById('comment-drawer').classList.add('show');
+}
+
+let shareTargetName = null;
+let shareTargetIdx  = null;
+
+// ── Profile overlay ──
+function openProfile(v, videoIdx) {
+  _editAccountTarget = { v, videoIdx };
+  const ov = document.getElementById('profile-overlay');
+  // Avatar
+  const avatarEl = document.getElementById('profile-avatar-inner');
+  avatarEl.innerHTML = '';
+  if (v.pfpDataUrl) {
+    const img = document.createElement('img'); img.src = v.pfpDataUrl; avatarEl.appendChild(img);
+  } else { avatarEl.textContent = '👤'; }
+
+  const uname = (v.username || '@creator').replace(/^@/, '');
+  document.getElementById('profile-display-name').textContent = v.username || '@creator';
+  document.getElementById('profile-handle').textContent = '@' + uname;
+  document.getElementById('profile-bio').textContent = v.description || '';
+
+  // Fake follower/like counts based on video stats
+  const followers = v.likes ? Math.round(v.likes * (8 + Math.random() * 12)) : Math.floor(Math.random() * 5000 + 200);
+  const totalLikes = v.likes ? Math.round(v.likes * (50 + Math.random() * 100)) : Math.floor(Math.random() * 50000 + 1000);
+  document.getElementById('profile-stat-followers').textContent = fmtCount(followers);
+  document.getElementById('profile-stat-likes').textContent = fmtCount(totalLikes);
+
+  // Fill grid with video of this creator (just use the same video repeated in a 3-col grid)
+  const grid = document.getElementById('profile-grid');
+  grid.innerHTML = '';
+  for (let g = 0; g < 6; g++) {
+    const item = document.createElement('div');
+    item.className = 'profile-grid-item';
+    const gvid = document.createElement('video');
+    gvid.src = v.url; gvid.muted = true; gvid.preload = 'metadata';
+    gvid.addEventListener('loadedmetadata', () => { gvid.currentTime = Math.random() * (gvid.duration || 0); });
+    const lbl = document.createElement('div');
+    lbl.className = 'profile-grid-label';
+    lbl.textContent = '▶ ' + fmtCount(Math.floor(v.likes * (0.5 + Math.random()) + 100));
+    item.append(gvid, lbl);
+    if (g < 2) {
+      const pin = document.createElement('div');
+      pin.className = 'profile-pinned-badge';
+      pin.textContent = 'Vastgemaakt';
+      item.appendChild(pin);
+    }
+    grid.appendChild(item);
+  }
+
+  ov.classList.add('show');
+  ov.scrollTop = 0;
+
+  if (!v.isFiller) {
+    postEvent('profile_visit', { videoName: v.name || v.url, videoIndex: videoIdx });
+  }
+}
+
+function closeProfile() {
+  const ov = document.getElementById('profile-overlay');
+  ov.classList.remove('show');
+  ov.style.transform = '';
+  ov.style.transition = '';
+  ov.style.opacity = '';
+}
+
+let _editAccountTarget = null; // { v, videoIdx }
+
+function openEditAccount() {
+  const { v } = _editAccountTarget || {};
+  if (!v) return;
+
+  // pre-fill fields
+  document.getElementById('edit-username-input').value = v.username || '';
+  document.getElementById('edit-bio-input').value = v.description || '';
+
+  // pre-fill pfp preview
+  const btn = document.getElementById('edit-pfp-btn');
+  btn.querySelector('span').textContent = '👤';
+  const existingImg = btn.querySelector('img');
+  if (existingImg) existingImg.remove();
+  if (v.pfpDataUrl) {
+    const img = document.createElement('img');
+    img.src = v.pfpDataUrl;
+    btn.appendChild(img);
+  }
+
+  document.getElementById('edit-account-modal').classList.add('show');
+}
+
+function closeEditAccount() {
+  document.getElementById('edit-account-modal').classList.remove('show');
+}
+
+function handleEditPfp(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const btn = document.getElementById('edit-pfp-btn');
+    let img = btn.querySelector('img');
+    if (!img) { img = document.createElement('img'); btn.appendChild(img); }
+    img.src = e.target.result;
+    btn.querySelector('span').textContent = '';
+    // store temporarily
+    btn.dataset.dataUrl = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveEditAccount() {
+  const { v } = _editAccountTarget || {};
+  if (!v) return;
+
+  const newUsername = document.getElementById('edit-username-input').value.trim();
+  const newBio      = document.getElementById('edit-bio-input').value.trim();
+  const pfpDataUrl  = document.getElementById('edit-pfp-btn').dataset.dataUrl || null;
+
+  if (newUsername) v.username    = newUsername.startsWith('@') ? newUsername : '@' + newUsername;
+  if (newBio !== undefined) v.description = newBio;
+  if (pfpDataUrl) { v.pfpDataUrl = pfpDataUrl; delete document.getElementById('edit-pfp-btn').dataset.dataUrl; }
+
+  // refresh profile overlay with updated data
+  closeEditAccount();
+  openProfile(v, _editAccountTarget.videoIdx);
+
+  // refresh the feed card if visible
+  refreshFeedCard(v);
+}
+
+function refreshFeedCard(v) {
+  document.querySelectorAll('.slide-username').forEach(el => {
+    if (el.dataset.videoUrl === v.url) {
+      // replace text node before the verified span
+      el.childNodes[0].textContent = v.username || '@creator';
+      // update desc sibling
+      const info = el.closest('.slide-info');
+      if (info) {
+        const descEl = info.querySelector('.slide-desc');
+        if (descEl) descEl.textContent = v.description || '';
+      }
+    }
+  });
+}
+
+(function initProfileSwipe() {
+  const ov = document.getElementById('profile-overlay');
+  let sx = 0, sy = 0, dragging = false;
+  ov.addEventListener('touchstart', e => {
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+    dragging = true;
+    ov.style.transition = 'none';
+  }, { passive: true });
+  ov.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const dx = e.touches[0].clientX - sx;
+    const dy = e.touches[0].clientY - sy;
+    if (Math.abs(dx) > Math.abs(dy) && dx > 0) {
+      ov.style.transform = `translateX(${dx}px)`;
+      ov.style.opacity = String(Math.max(0, 1 - dx / window.innerWidth));
+    }
+  }, { passive: true });
+  ov.addEventListener('touchend', e => {
+    if (!dragging) return;
+    dragging = false;
+    const dx = e.changedTouches[0].clientX - sx;
+    ov.style.transition = 'transform .25s ease, opacity .25s ease';
+    if (dx > 100) {
+      ov.style.transform = `translateX(100%)`;
+      ov.style.opacity = '0';
+      setTimeout(closeProfile, 260);
+    } else {
+      ov.style.transform = '';
+      ov.style.opacity = '';
+    }
+  }, { passive: true });
+})();
+
+function openSharePopup(vname, idx) {
+  shareTargetName = vname;
+  shareTargetIdx  = idx;
+  document.getElementById('share-popup').classList.add('show');
+}
+
+function closeSharePopup() {
+  document.getElementById('share-popup').classList.remove('show');
+  shareTargetName = null; shareTargetIdx = null;
+}
+
+function confirmShare() {
+  if (shareTargetName === null) return;
+  postEvent('share', { videoName: shareTargetName, videoIndex: shareTargetIdx });
+  updateVideoStats(shareTargetName, s => { s.shares = (s.shares || 0) + 1; });
+  closeSharePopup();
+}
+
+function closeCommentDrawer() {
+  document.getElementById('comment-drawer').classList.remove('show');
+  commentTargetIdx = null;
+}
+
+function submitComment() {
+  const inp = document.getElementById('comment-input');
+  const text = inp.value.trim();
+  if (!text || commentTargetIdx === null) return;
+  updateVideoStats(videos[commentTargetIdx].name, s => { s.comments.push({ at: new Date().toISOString(), text }); });
+  postEvent('comment', { videoIndex: commentTargetIdx, videoName: videos[commentTargetIdx].name, text });
+  inp.value = '';
+  openCommentDrawer(commentTargetIdx);
+}
+
+// ═══════════════════════════════════
+// STATS / TRACKING (local)
+// ═══════════════════════════════════
+const STATS_KEY = 'bingtok_stats';
+function loadStats() { try { return JSON.parse(localStorage.getItem(STATS_KEY) || '{}'); } catch { return {}; } }
+function saveStats(d) { localStorage.setItem(STATS_KEY, JSON.stringify(d)); }
+
+function getVideoStats(name) {
+  const all = loadStats();
+  if (!all[name]) {
+    all[name] = { name, views:0, totalWatchSec:0, likes:[], saves:[], shares:0, swipedAwayAt:[], comments:[], sessions:[] };
+    saveStats(all);
+  }
+  return all[name];
+}
+
+function updateVideoStats(name, fn) {
+  const all = loadStats();
+  if (!all[name]) getVideoStats(name);
+  fn(all[name]);
+  saveStats(all);
+}
+
+function startWatch(idx) {
+  const v = videos[idx];
+  if (!v || v.isFiller) return;
+  const isRewatch = (v._rewatches || 0) > 0;
+  if (isRewatch) {
+    updateVideoStats(v.name, s => { s.rewatches = (s.rewatches || 0) + 1; });
+    postEvent('rewatch', { videoIndex: idx, videoName: v.name, rewatchCount: v._rewatches });
+  }
+  watchSessions[idx] = { startedAt: Date.now() };
+  updateVideoStats(v.name, s => { s.views++; });
+  postEvent('watch_start', { videoIndex: idx, videoName: v.name });
+}
+
+function endWatch(idx, swiped = false) {
+  const v = videos[idx];
+  if (!v || v.isFiller) return;
+  const sess = watchSessions[idx];
+  if (!sess?.startedAt) return;
+  const elapsed = (Date.now() - sess.startedAt) / 1000;
+  sess.startedAt = null;
+  updateVideoStats(v.name, s => {
+    s.totalWatchSec = (s.totalWatchSec || 0) + elapsed;
+    s.sessions.push({ startedAt: new Date().toISOString(), watchedSec: +elapsed.toFixed(1) });
+    if (swiped) s.swipedAwayAt.push({ at: new Date().toISOString(), watchedSec: +elapsed.toFixed(1) });
+  });
+  postEvent('watch_end', { videoIndex: idx, videoName: v.name, watchedSec: +elapsed.toFixed(1), swiped });
+}
+
+function openStats() { renderStats(); document.getElementById('stats-panel').style.display = 'block'; }
+function closeStats() { document.getElementById('stats-panel').style.display = 'none'; }
+
+function renderStats() {
+  const grid = document.getElementById('stats-grid');
+  const all = loadStats();
+  const keys = Object.keys(all);
+  if (!keys.length) { grid.innerHTML = '<div class="no-stats">No data yet — complete the test first.</div>'; return; }
+  grid.innerHTML = '';
+
+  // build a duration lookup from config
+  const cfgVideos = (_adminConfig || {}).videos || [];
+
+  keys.forEach(name => {
+    const s = all[name];
+    const avg = s.sessions.length ? (s.sessions.reduce((a,b)=>a+b.watchedSec,0)/s.sessions.length).toFixed(1) : '0';
+    const card = document.createElement('div'); card.className = 'stat-card';
+    let html = `<h3 title="${name}">${name.replace(/\.[^.]+$/,'')}</h3>`;
+    [
+      ['Views', s.views, ''],
+      ['Total watch', ((s.totalWatchSec||0)/60).toFixed(1)+'min', ''],
+      ['Avg session', avg+'s', avg>15?'g':avg>5?'y':'r'],
+      ['Likes (test)', s.likes.length, s.likes.length?'r':''],
+      ['Saves (test)', s.saves.length, s.saves.length?'y':''],
+      ['Comments', s.comments.length, s.comments.length?'g':''],
+      ['Swipes away', s.swipedAwayAt.length, ''],
+    ].forEach(([l,val,cls]) => { html += `<div class="stat-row"><span class="slbl">${l}</span><span class="sval ${cls}">${val}</span></div>`; });
+    if (s.comments.length) {
+      html += `<div class="stat-events">`;
+      s.comments.slice(-3).forEach(c => { html += `<div class="stat-event">💬 ${c.text.slice(0,60)}</div>`; });
+      html += `</div>`;
+    }
+    // retentie grafiek — zet sessions om naar zelfde formaat als admin
+    const watchSecs = s.sessions.map(sess => sess.watchedSec || 0);
+    const dur = s._duration || Math.max(...watchSecs, 1);
+    html += buildDropoffChart({ watchSessions: watchSecs, duration: dur });
+    card.innerHTML = html;
+    grid.appendChild(card);
+  });
+}
+
+function exportStats() { downloadTXT(); }
+function clearStats() { if (confirm('Clear all tracking data?')) { localStorage.removeItem(STATS_KEY); renderStats(); } }
+
+// ═══════════════════════════════════
+// START TEST (setup → admin)
+// ═══════════════════════════════════
+function startTest() {
+  if (!testVideos.length) return;
+  // Build feed: shuffle but keep own videos out of first 3 slots
+  const ownVids    = testVideos.filter(v => !v.isTrackedFiller);
+  const fillerAll  = [...fillerVideos, ...testVideos.filter(v => v.isTrackedFiller)];
+  const shuffled   = [...ownVids, ...fillerAll].sort(() => Math.random() - .5);
+  // move any own video in slot 0-2 to after position 2
+  for (let i = 0; i < 3 && i < shuffled.length; i++) {
+    if (!shuffled[i].isFiller && !shuffled[i].isTrackedFiller) {
+      // find first filler at position >= 3 to swap with
+      const swapIdx = shuffled.findIndex((v, j) => j >= 3 && (v.isFiller || v.isTrackedFiller));
+      if (swapIdx !== -1) { [shuffled[i], shuffled[swapIdx]] = [shuffled[swapIdx], shuffled[i]]; }
+      else shuffled.splice(3, 0, ...shuffled.splice(i, 1)); // push to position 3
+    }
+  }
+  videos = shuffled;
+  const inp = document.getElementById('test-name-input');
+  inp.value = testName || '';
+  document.getElementById('test-name-modal').classList.add('show');
+  setTimeout(() => inp.focus(), 60);
+}
+
+async function confirmStartTest() {
+  const inp = document.getElementById('test-name-input');
+  testName = inp.value.trim() || `Test ${new Date().toLocaleDateString()}`;
+  document.getElementById('test-name-modal').classList.remove('show');
+  testStartedAt = new Date();
+  localStorage.removeItem(STATS_KEY);
+
+  const config = {
+    testName,
+    startedAt: testStartedAt.toISOString(),
+    videos: videos.map(v => ({
+      url: v.url, name: v.name, originalName: v.originalName || v.name,
+      username: v.username, pfpDataUrl: v.pfpDataUrl || null,
+      description: v.description,
+      likes: v.likes, comments: v.comments, shares: v.shares, saves: v.saves,
+      isFiller: v.isFiller || false, isTrackedFiller: v.isTrackedFiller || false,
+    })),
+  };
+
+  await postConfig(config);
+  _adminConfig = config;
+
+  showScreen('admin');
+  initAdmin();
+}
+
+// ═══════════════════════════════════
+// SAVE REPORT (phone local download)
+// ═══════════════════════════════════
+function showSaveModal() {
+  endWatch(currentIdx, false);
+  const summary = document.getElementById('save-summary');
+  const all = loadStats();
+  const keys = Object.keys(all);
+  const totalViews   = keys.reduce((a,k)=>a+(all[k].views||0),0);
+  const totalWatch   = keys.reduce((a,k)=>a+(all[k].totalWatchSec||0),0);
+  const totalLikes   = keys.reduce((a,k)=>a+(all[k].likes?.length||0),0);
+  const totalComments= keys.reduce((a,k)=>a+(all[k].comments?.length||0),0);
+  const duration     = testStartedAt ? Math.round((Date.now()-testStartedAt)/1000) : 0;
+  summary.innerHTML = `
+    <div class="save-row"><span class="slbl">Test name</span><span class="sval">${testName}</span></div>
+    <div class="save-row"><span class="slbl">Started</span><span class="sval">${testStartedAt?testStartedAt.toLocaleTimeString():'—'}</span></div>
+    <div class="save-row"><span class="slbl">Duration</span><span class="sval">${fmtDuration(duration)}</span></div>
+    <div class="save-row"><span class="slbl">Videos tested</span><span class="sval">${keys.length}</span></div>
+    <div class="save-row"><span class="slbl">Total views</span><span class="sval">${totalViews}</span></div>
+    <div class="save-row"><span class="slbl">Total watch time</span><span class="sval">${(totalWatch/60).toFixed(1)} min</span></div>
+    <div class="save-row"><span class="slbl">Likes</span><span class="sval">${totalLikes}</span></div>
+    <div class="save-row"><span class="slbl">Comments</span><span class="sval">${totalComments}</span></div>
+  `;
+  document.getElementById('save-modal').classList.add('show');
+}
+
+function closeSaveModal() { document.getElementById('save-modal').classList.remove('show'); }
+
+function downloadTXT() {
+  const all = loadStats(); const keys = Object.keys(all);
+  const completedAt = new Date();
+  const duration = testStartedAt ? Math.round((Date.now()-testStartedAt)/1000) : 0;
+  const line = '─'.repeat(44), dline = '═'.repeat(44);
+  let txt = `${dline}\n  BINGTOK — TESTRAPPORT\n${dline}\n`;
+  txt += `  Testnaam  : ${testName}\n`;
+  txt += `  Datum     : ${completedAt.toLocaleDateString('nl-NL',{day:'2-digit',month:'long',year:'numeric'})}\n`;
+  txt += `  Gestart   : ${testStartedAt?testStartedAt.toLocaleTimeString('nl-NL'):'—'}\n`;
+  txt += `  Afgerond  : ${completedAt.toLocaleTimeString('nl-NL')}\n`;
+  txt += `  Duur      : ${fmtDuration(duration)}\n`;
+  txt += `  Video's   : ${keys.length}\n${dline}\n\n`;
+  keys.forEach((name, i) => {
+    const s = all[name]; const v = videos.find(x=>x.name===name)||{};
+    const avg = s.sessions.length?(s.sessions.reduce((a,b)=>a+b.watchedSec,0)/s.sessions.length).toFixed(1):'0';
+    txt += `${line}\n  VIDEO ${i+1}: ${name.replace(/\.[^.]+$/,'')}\n${line}\n`;
+    if (v.username)    txt += `  Account       : ${v.username}\n`;
+    if (v.description) txt += `  Beschrijving  : ${v.description}\n`;
+    txt += `\n  Weergaven         : ${s.views}\n`;
+    txt += `  Totale kijktijd   : ${(s.totalWatchSec||0).toFixed(1)}s\n`;
+    txt += `  Gem. sessie       : ${avg}s\n`;
+    txt += `  Likes (test)      : ${s.likes.length}\n`;
+    txt += `  Saves (test)      : ${s.saves.length}\n`;
+    txt += `  Comments          : ${s.comments.length}\n`;
+    txt += `  Weggescrolled     : ${s.swipedAwayAt.length}x\n`;
+    if (s.swipedAwayAt.length) {
+      const swipeAvg = (s.swipedAwayAt.reduce((a,b)=>a+b.watchedSec,0)/s.swipedAwayAt.length).toFixed(1);
+      txt += `  Gem. voor swipe   : ${swipeAvg}s\n`;
+    }
+    if (s.comments.length) { txt += `\n  Opmerkingen:\n`; s.comments.forEach(c => { txt += `    - ${c.text}\n`; }); }
+    txt += `\n`;
+  });
+  const totalViews    = keys.reduce((a,k)=>a+(all[k].views||0),0);
+  const totalWatch    = keys.reduce((a,k)=>a+(all[k].totalWatchSec||0),0);
+  const totalLikes    = keys.reduce((a,k)=>a+(all[k].likes?.length||0),0);
+  const totalSaves    = keys.reduce((a,k)=>a+(all[k].saves?.length||0),0);
+  const totalComments = keys.reduce((a,k)=>a+(all[k].comments?.length||0),0);
+  txt += `${dline}\n  TOTAAL OVERZICHT\n${dline}\n`;
+  txt += `  Totaal weergaven   : ${totalViews}\n`;
+  txt += `  Totale kijktijd    : ${totalWatch.toFixed(1)}s\n`;
+  txt += `  Totaal likes       : ${totalLikes}\n`;
+  txt += `  Totaal saves       : ${totalSaves}\n`;
+  txt += `  Totaal comments    : ${totalComments}\n`;
+  txt += `${dline}\n  Gegenereerd door BingTok — ${completedAt.toISOString()}\n${dline}\n`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}));
+  a.download = `bingtok-${slug(testName)}-${isoDate()}.txt`;
+  a.click();
+}
+
+// ═══════════════════════════════════
+// KEYBOARD (feed only)
+// ═══════════════════════════════════
+document.getElementById('test-name-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmStartTest();
+  if (e.key === 'Escape') document.getElementById('test-name-modal').classList.remove('show');
+});
+
+document.addEventListener('keydown', e => {
+  if (document.getElementById('test-name-modal').classList.contains('show')) return;
+  if (document.getElementById('save-modal').classList.contains('show')) { if (e.key==='Escape') closeSaveModal(); return; }
+  if (document.getElementById('stats-panel').style.display==='block') { if (e.key==='Escape') closeStats(); return; }
+  if (document.getElementById('comment-drawer').classList.contains('show')) return;
+  if (document.getElementById('screen-feed').style.display==='none') return;
+  const slides = document.querySelectorAll('.slide');
+  if (e.key==='ArrowDown'||e.key==='j') slides[Math.min(currentIdx+1,videos.length-1)]?.scrollIntoView({behavior:'smooth'});
+  else if (e.key==='ArrowUp'||e.key==='k') slides[Math.max(currentIdx-1,0)]?.scrollIntoView({behavior:'smooth'});
+  else if (e.key===' ') { e.preventDefault(); const v=videos[currentIdx]; if(v?._vid) togglePlay(v._vid, slides[currentIdx]?.querySelector('.play-flash'), v); }
+  else if (e.key==='m'||e.key==='M') setMute(!globalMuted);
+  else if (e.key==='l'||e.key==='L') videos[currentIdx]?._likeBtn?.click();
+  else if (e.key==='s'||e.key==='S') videos[currentIdx]?._savBtn?.click();
+  else if (e.key==='c'||e.key==='C') openCommentDrawer(currentIdx);
+  else if (e.key==='Escape') closeCommentDrawer();
+});
+
+// ═══════════════════════════════════
+// BOOT
+// ═══════════════════════════════════
+(async function startApp() {
+  if (MODE === 'setup') {
+    showScreen('upload');
+  } else if (MODE === 'admin') {
+    showScreen('admin');
+    initAdmin();
+  } else if (MODE === 'test') {
+    boot();
+  }
+})();
+
+let selectedGender = '';
+
+function selectGender(btn) {
+  document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedGender = btn.dataset.gender;
+}
+
+function submitParticipant() {
+  const name = document.getElementById('p-name').value.trim();
+  const age  = document.getElementById('p-age').value.trim();
+  if (!name) { document.getElementById('p-name').focus(); return; }
+  if (!age)  { document.getElementById('p-age').focus();  return; }
+
+  postEvent('participant', { name, age: +age, gender: selectedGender || 'Niet opgegeven' });
+  showScreen('preload');
+  preloadAllVideos().then(() => {
+    buildFeed();
+    showScreen('feed');
+    saveSessionState();
+    document.getElementById('complete-btn').style.display = 'block';
+    setTimeout(() => { document.getElementById('key-hint').style.opacity = '0'; }, 5000);
+  });
+}
+
+async function preloadAllVideos() {
+  const bar   = document.getElementById('preload-bar');
+  const label = document.getElementById('preload-label');
+  const total = videos.length;
+  let done = 0;
+
+  const update = () => {
+    bar.style.width = (done / total * 100) + '%';
+    label.textContent = `Video's laden… ${done} / ${total}`;
+  };
+  update();
+
+  await Promise.all(videos.map(v => new Promise(resolve => {
+    const vid = document.createElement('video');
+    vid.preload = 'auto';
+    vid.muted = true;
+    vid.src = v.url;
+    const finish = () => { done++; update(); resolve(); };
+    vid.addEventListener('canplaythrough', finish, { once: true });
+    vid.addEventListener('error', finish, { once: true });
+    // timeout van 15s per video zodat je niet eeuwig wacht
+    setTimeout(finish, 15000);
+    vid.load();
+  })));
+}
+
+const SESSION_KEY = 'bingtok_session';
+function saveSessionState() {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      testName, startedAt: testStartedAt?.toISOString(), currentIdx,
+    }));
+  } catch {}
+}
+function loadSessionState() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; }
+}
+function clearSessionState() {
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(STATS_KEY);
+}
+
+async function boot() {
+  if (MODE !== 'test') return;
+  showScreen('waiting');
+  let config = null;
+  while (!config || !config.videos || !config.videos.length) {
+    try { config = await fetchConfig(); } catch {}
+    if (!config || !config.videos || !config.videos.length) {
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  testName = config.testName || '';
+  testStartedAt = config.startedAt ? new Date(config.startedAt) : new Date();
+  videos = config.videos.map(v => ({
+    ...v,
+    _liked: false, _saved: false,
+    _vid: null, _likeBtn: null, _savBtn: null,
+  }));
+
+  // Check if this is a crash-recovery (same session still in localStorage)
+  const saved = loadSessionState();
+  const isSameSession = saved && saved.testName === testName && saved.startedAt === testStartedAt?.toISOString();
+
+  if (isSameSession) {
+    // Resume: skip clearing stats, rebuild feed at last known position
+    buildFeed();
+    showScreen('feed');
+    document.getElementById('complete-btn').style.display = 'block';
+    // Scroll to the last known video index
+    const resumeIdx = saved.currentIdx || 0;
+    setTimeout(() => {
+      const slide = document.getElementById('feed')?.querySelector(`.slide[data-idx="${resumeIdx}"]`);
+      if (slide) slide.scrollIntoView({ behavior: 'instant' });
+    }, 100);
+    // Show a brief recovery toast
+    showToast(`Sessie hervat vanaf video ${resumeIdx + 1}`);
+  } else {
+    // Fresh start: clear old stats and show participant form
+    clearSessionState();
+    showScreen('participant');
+    document.getElementById('p-name').value = '';
+    document.getElementById('p-age').value = '';
+    document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('selected'));
+  }
+
+  window._bootConfig = config;
+
+  // Listen for reset from admin
+  const phoneEs = new EventSource(api('/api/stream'));
+  phoneEs.onmessage = e => {
+    try {
+      const ev = JSON.parse(e.data);
+      if (ev.type === 'reset') {
+        phoneEs.close();
+        if (feedObserver) feedObserver.disconnect();
+        videos.forEach(v => { if (v._vid) v._vid.pause(); });
+        clearSessionState();
+        showScreen('waiting');
+        boot();
+      }
+    } catch {}
+  };
+}
+
+function showToast(msg) {
+  let t = document.getElementById('_toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = '_toast';
+    t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#25d167;color:#000;font-size:.8rem;font-weight:700;padding:8px 18px;border-radius:20px;z-index:999;opacity:0;transition:opacity .3s';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  setTimeout(() => { t.style.opacity = '0'; }, 3000);
+}
+</script>
+</body>
+</html>
