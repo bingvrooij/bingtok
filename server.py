@@ -169,17 +169,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == '/rooms':
-            from urllib.parse import parse_qs
-            pw = parse_qs(urlparse(self.path).query).get('pw', [None])[0]
-            if pw != 'BingTokAdmin!Fantasm':
+            # Check cookie for auth
+            cookie_hdr = self.headers.get('Cookie', '')
+            authed = 'bingtok_auth=1' in cookie_hdr
+            if not authed:
                 body = b'''<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>BingTok Rooms</title>
 <style>body{background:#111;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
 form{display:flex;flex-direction:column;gap:12px;background:#1a1a1a;padding:32px;border-radius:12px;min-width:300px}
 h2{margin:0;color:#fe2c55}input{padding:10px;border-radius:8px;border:1px solid #333;background:#222;color:#eee;font-size:1rem}
 button{padding:10px;background:#fe2c55;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:700}
-.err{color:#fe2c55;font-size:.85rem}</style></head><body>
-<form method="GET" action="/rooms">
+</style></head><body>
+<form method="POST" action="/rooms-login">
 <h2>BingTok Admin</h2>
 <input type="password" name="pw" placeholder="Wachtwoord" autofocus>
 <button type="submit">Inloggen</button>
@@ -203,14 +204,16 @@ button{padding:10px;background:#fe2c55;color:#fff;border:none;border-radius:8px;
 <td>{name}</td>
 <td>{nevents} events</td>
 <td>{"🟢 " + str(nclients) + " live" if nclients else "⚪ geen"}</td>
-<td><a href="{base}/admin?room={rid}" target="_blank">Admin</a> &nbsp;
-    <a href="{base}/test?room={rid}" target="_blank">Test</a></td>
+<td>
+  <a href="{base}/admin?room={rid}" target="_blank">Admin</a> &nbsp;
+  <a href="{base}/test?room={rid}" target="_blank">Test</a> &nbsp;
+  <button onclick="stopRoom('{rid}')" style="background:#333;color:#fe2c55;border:1px solid #fe2c55;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:.8rem">Stop</button>
+</td>
 </tr>'''
             if not rows:
-                rows = '<tr><td colspan="5" style="color:#666;text-align:center">Geen actieve sessies</td></tr>'
+                rows = '<tr><td colspan="5" style="color:#666;text-align:center;padding:24px">Geen actieve sessies</td></tr>'
             body = f'''<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>BingTok Rooms</title>
-<meta http-equiv="refresh" content="15">
 <style>body{{background:#111;color:#eee;font-family:sans-serif;padding:32px;margin:0}}
 h2{{color:#fe2c55;margin-top:0}}table{{width:100%;border-collapse:collapse;background:#1a1a1a;border-radius:12px;overflow:hidden}}
 th{{text-align:left;padding:12px 16px;background:#222;color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px}}
@@ -219,15 +222,30 @@ a{{color:#fe2c55;text-decoration:none}}code{{background:#222;padding:2px 6px;bor
 .meta{{color:#666;font-size:.8rem;margin-top:16px}}</style></head>
 <body>
 <h2>BingTok — Actieve Sessies</h2>
-<table><thead><tr><th>Room ID</th><th>Sessienaam</th><th>Events</th><th>Status</th><th>Links</th></tr></thead>
+<table><thead><tr><th>Room ID</th><th>Sessienaam</th><th>Events</th><th>Status</th><th>Acties</th></tr></thead>
 <tbody>{rows}</tbody></table>
-<p class="meta">Vernieuwt automatisch elke 15 seconden · <a href="/rooms?pw=BingTokAdmin!Fantasm">↺ Nu vernieuwen</a></p>
+<p class="meta">Vernieuwt automatisch elke 15 seconden &nbsp;·&nbsp; <a href="/rooms">↺ Nu vernieuwen</a> &nbsp;·&nbsp; <a href="/rooms-logout">Uitloggen</a></p>
+<script>
+async function stopRoom(id) {{
+  if (!confirm('Sessie ' + id + ' stoppen?')) return;
+  await fetch('/api/room/stop?room=' + id, {{method: 'POST'}});
+  location.reload();
+}}
+setInterval(() => location.reload(), 15000);
+</script>
 </body></html>'''.encode()
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+            return
+
+        if path == '/rooms-logout':
+            self.send_response(302)
+            self.send_header('Location', '/rooms')
+            self.send_header('Set-Cookie', 'bingtok_auth=; Path=/; Max-Age=0')
+            self.end_headers()
             return
 
         if path == '/api/local-ip':
@@ -346,6 +364,33 @@ a{{color:#fe2c55;text-decoration:none}}code{{background:#222;padding:2px 6px;bor
     def do_POST(self):
         path = unquote(urlparse(self.path).path)
         room_id = self._room_id()
+
+        if path == '/rooms-login':
+            body = self.read_body().decode('utf-8', errors='replace')
+            from urllib.parse import parse_qs as _pqs
+            pw = _pqs(body).get('pw', [None])[0]
+            if pw == 'BingTokAdmin!Fantasm':
+                self.send_response(302)
+                self.send_header('Location', '/rooms')
+                self.send_header('Set-Cookie', 'bingtok_auth=1; Path=/; HttpOnly; SameSite=Strict')
+                self.end_headers()
+            else:
+                self.send_response(302)
+                self.send_header('Location', '/rooms')
+                self.end_headers()
+            return
+
+        if path == '/api/room/stop':
+            if not room_id or room_id not in _rooms:
+                self.send_json({'error': 'not found'}, 404); return
+            room = _rooms[room_id]
+            room_broadcast(room_id, {'type': 'reset'})
+            for wf in room['clients']:
+                try: wf.flush()
+                except: pass
+            del _rooms[room_id]
+            self.send_json({'ok': True})
+            return
 
         if path == '/api/preset/compress':
             body = json.loads(self.read_body())
