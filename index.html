@@ -1709,14 +1709,8 @@ async function initAdmin() {
   _state_events  = [];
   adminConnected = false;
 
-  // Fetch real LAN IP from server
-  let lanBase = `http://${location.hostname}:${location.port}`;
-  try {
-    const { ip, port } = await fetch('/api/local-ip').then(r => r.json());
-    lanBase = `http://${ip}:${port}`;
-  } catch {}
-
-  // Use Cloudflare tunnel URL if available
+  // Use current browser origin as base (works on Railway, local, and Cloudflare tunnel)
+  let lanBase = location.origin;
   try {
     const { url } = await fetch('/api/public-url').then(r => r.json());
     if (url) lanBase = url;
