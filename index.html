@@ -811,6 +811,53 @@
   <div id="feed"></div>
 </div>
 
+<!-- SCREEN — Meedoen Admin -->
+<div id="screen-meedoen-admin" style="display:none;position:fixed;inset:0;background:#0e0e0e;overflow-y:auto;flex-direction:column">
+  <div style="max-width:1100px;margin:0 auto;padding:24px 20px">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="logo" style="font-size:1.2rem">Bing<span>Tok</span></div>
+        <span style="color:#444;font-size:.85rem">— Meedoen resultaten</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="pill-btn outline sm" onclick="meedoenAdminRefresh()">↺ Vernieuwen</button>
+        <a href="/api/participants/export" class="pill-btn sm" style="text-decoration:none">⬇ CSV</a>
+        <a href="/publish" class="pill-btn outline sm" style="text-decoration:none;color:#888">Publiceer</a>
+      </div>
+    </div>
+    <!-- Summary tiles -->
+    <div id="ma-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px"></div>
+    <!-- Video stats -->
+    <div style="background:#1a1a1a;border-radius:14px;overflow:hidden;margin-bottom:24px">
+      <div style="padding:14px 18px;background:#181818;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.78rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px">Video prestaties</span>
+        <select id="ma-video-sort" onchange="meedoenAdminRenderVideos()" style="background:#222;color:#aaa;border:1px solid #333;border-radius:6px;padding:4px 8px;font-size:.78rem">
+          <option value="watchSec">↓ Kijktijd</option>
+          <option value="views">↓ Views</option>
+          <option value="likes">↓ Likes</option>
+          <option value="saves">↓ Saves</option>
+        </select>
+      </div>
+      <div id="ma-video-table" style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr id="ma-video-thead" style="background:#151515"></tr></thead>
+          <tbody id="ma-video-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Participants list -->
+    <div style="background:#1a1a1a;border-radius:14px;overflow:hidden">
+      <div style="padding:14px 18px;background:#181818;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.78rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px">Deelnemers <span id="ma-p-count" style="color:#fe2c55"></span></span>
+        <input id="ma-p-search" type="text" placeholder="Zoek naam…" oninput="meedoenAdminRenderParticipants()" style="background:#222;color:#eee;border:1px solid #333;border-radius:6px;padding:4px 10px;font-size:.78rem;outline:none">
+      </div>
+      <div id="ma-p-list" style="display:flex;flex-direction:column"></div>
+    </div>
+    <p style="color:#333;font-size:.75rem;margin-top:16px;text-align:center">Vernieuwt niet automatisch · klik ↺ Vernieuwen voor nieuwe data</p>
+  </div>
+</div>
+
 <!-- SCREEN — Meedoen (publieke test welkomstpagina) -->
 <div id="screen-meedoen" style="display:none;position:fixed;inset:0;background:#0e0e0e;z-index:200;overflow-y:auto;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px;gap:0">
   <div style="max-width:420px;width:100%;display:flex;flex-direction:column;gap:20px">
@@ -1226,7 +1273,8 @@ const SCREENS = {
   waiting:     document.getElementById('screen-waiting'),
   preload:     document.getElementById('screen-preload'),
   participant: document.getElementById('screen-participant'),
-  meedoen:     document.getElementById('screen-meedoen'),
+  meedoen:       document.getElementById('screen-meedoen'),
+  'meedoen-admin': document.getElementById('screen-meedoen-admin'),
 };
 
 function showScreen(name) {
@@ -3557,51 +3605,105 @@ async function stopPublicTest() {
 // ═══════════════════════════════════
 // MEEDOEN-ADMIN (publieke test dashboard)
 // ═══════════════════════════════════
+let _maParticipants = [];
+
 async function bootMeedoenAdmin() {
-  showScreen('dashboard');
-  // Override the dashboard header
-  const hdr = document.querySelector('#screen-dashboard .dash-header');
-  if (hdr) hdr.innerHTML = `
-    <div style="display:flex;align-items:center;gap:12px">
-      <div class="logo" style="font-size:1.1rem">Bing<span>Tok</span></div>
-      <span style="color:#555;font-size:.85rem">— Meedoen resultaten</span>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="pill-btn outline sm" onclick="meedoenAdminRefresh()">↺ Vernieuwen</button>
-      <a href="/api/participants/export" class="pill-btn sm" style="text-decoration:none">⬇ CSV</a>
-    </div>`;
-  // Hide the import section — data comes from server
-  const importEl = document.getElementById('dash-import-area');
-  if (importEl) importEl.style.display = 'none';
+  showScreen('meedoen-admin');
   await meedoenAdminRefresh();
 }
 
 async function meedoenAdminRefresh() {
   try {
-    const participants = await fetch('/api/participants').then(r => r.json());
-    // Clear existing sessions and reload
-    _dashSessions.length = 0;
-    participants.forEach(p => {
-      if (p.stats && Object.keys(p.stats).length) {
-        _dashSessions.push({
-          testName: p.name || 'Deelnemer',
-          savedAt:  p.savedAt || p.completedAt,
-          stats:    p.stats,
-        });
-      }
-    });
-    renderDashboard();
-    // Update loaded tags label
-    const list = document.getElementById('dash-loaded-list');
-    if (list) {
-      const tag = document.createElement('div');
-      tag.className = 'dash-tag';
-      tag.innerHTML = `<span>${_dashSessions.length} deelnemers geladen</span>`;
-      list.prepend(tag);
-    }
+    _maParticipants = await fetch('/api/participants').then(r => r.json());
   } catch (e) {
-    alert('Kon data niet laden. Ben je ingelogd? (' + e.message + ')');
+    alert('Kon data niet laden. Ben je ingelogd? (' + e.message + ')'); return;
   }
+  meedoenAdminRenderSummary();
+  meedoenAdminRenderVideos();
+  meedoenAdminRenderParticipants();
+}
+
+function meedoenAdminRenderSummary() {
+  const ps = _maParticipants;
+  const completed = ps.filter(p => p.completed).length;
+  const allStats  = ps.flatMap(p => Object.values(p.stats || {}));
+  const totalViews = allStats.reduce((a, s) => a + (s.views || 0), 0);
+  const totalWatch = allStats.reduce((a, s) => a + (s.watchSec || s.totalWatchSec || 0), 0);
+  const avgWatch   = ps.length ? Math.round(totalWatch / ps.length) : 0;
+  const tiles = [
+    ['Deelnemers', ps.length],
+    ['Afgerond', completed],
+    ['Totaal views', totalViews],
+    ['Gem. kijktijd', avgWatch + 's'],
+    ["Video's bekeken", new Set(ps.flatMap(p => Object.keys(p.stats || {}))).size],
+  ];
+  document.getElementById('ma-summary').innerHTML = tiles.map(([l, v]) => `
+    <div style="background:#1a1a1a;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:4px">
+      <div style="color:#555;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">${l}</div>
+      <div style="font-size:1.5rem;font-weight:800;color:#eee">${v}</div>
+    </div>`).join('');
+}
+
+function meedoenAdminRenderVideos() {
+  const sortKey = document.getElementById('ma-video-sort')?.value || 'watchSec';
+  const agg = {};
+  _maParticipants.forEach(p => {
+    Object.entries(p.stats || {}).forEach(([vname, vs]) => {
+      if (!agg[vname]) agg[vname] = { views:0, watchSec:0, likes:0, saves:0, shares:0, comments:0, count:0 };
+      const a = agg[vname];
+      a.count++;
+      a.views    += vs.views || 0;
+      a.watchSec += vs.watchSec || vs.totalWatchSec || 0;
+      a.likes    += typeof vs.likes === 'number' ? vs.likes : (vs.likes?.length || 0);
+      a.saves    += typeof vs.saves === 'number' ? vs.saves : (vs.saves?.length || 0);
+      a.shares   += vs.shares || 0;
+      a.comments += typeof vs.comments === 'number' ? vs.comments : (vs.comments?.length || 0);
+    });
+  });
+  const cols = ['Video', 'Deelnemers', 'Views', 'Kijktijd', 'Gem/p', 'Likes', 'Saves', 'Shares'];
+  document.getElementById('ma-video-thead').innerHTML = cols.map(c =>
+    `<th style="text-align:left;padding:10px 14px;color:#555;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">${c}</th>`).join('');
+  const rows = Object.entries(agg).sort((a,b) => b[1][sortKey] - a[1][sortKey]);
+  document.getElementById('ma-video-tbody').innerHTML = rows.length ? rows.map(([name, a], i) => {
+    const avg = a.count ? Math.round(a.watchSec / a.count) : 0;
+    const bg  = i % 2 === 0 ? '' : 'background:#111';
+    return `<tr style="${bg}">
+      <td style="padding:10px 14px;font-size:.83rem;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#ccc" title="${name}">${name}</td>
+      <td style="padding:10px 14px;font-size:.83rem;color:#888">${a.count}</td>
+      <td style="padding:10px 14px;font-size:.83rem">${a.views}</td>
+      <td style="padding:10px 14px;font-size:.83rem">${Math.round(a.watchSec)}s</td>
+      <td style="padding:10px 14px;font-size:.83rem;color:#fe2c55">${avg}s</td>
+      <td style="padding:10px 14px;font-size:.83rem">${a.likes}</td>
+      <td style="padding:10px 14px;font-size:.83rem">${a.saves}</td>
+      <td style="padding:10px 14px;font-size:.83rem">${a.shares}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="8" style="padding:20px;color:#444;text-align:center">Nog geen data</td></tr>`;
+}
+
+function meedoenAdminRenderParticipants() {
+  const q = (document.getElementById('ma-p-search')?.value || '').toLowerCase();
+  const ps = _maParticipants.filter(p => !q || (p.name || '').toLowerCase().includes(q));
+  document.getElementById('ma-p-count').textContent = `(${ps.length})`;
+  document.getElementById('ma-p-list').innerHTML = ps.length ? ps.map(p => {
+    const n      = Object.keys(p.stats || {}).length;
+    const at     = p.savedAt ? new Date(p.savedAt).toLocaleString('nl-NL') : '—';
+    const done   = p.completed ? '<span style="color:#25d167;font-size:.75rem">✓ Afgerond</span>' : '<span style="color:#555;font-size:.75rem">⏳ Bezig</span>';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-top:1px solid #222;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <span style="font-size:.9rem;font-weight:600">${p.name || '—'}</span>
+        <span style="font-size:.75rem;color:#555">${at} · ${n} video's · ${done}</span>
+      </div>
+      <button onclick='meedoenDownloadJson(${JSON.stringify(p)})' class="pill-btn outline sm" style="font-size:.75rem">⬇ JSON</button>
+    </div>`;
+  }).join('') : `<div style="padding:24px;color:#444;text-align:center">Geen deelnemers gevonden</div>`;
+}
+
+function meedoenDownloadJson(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `meedoen-${data.name || data.id || 'deelnemer'}.json`;
+  a.click();
 }
 
 // ═══════════════════════════════════
