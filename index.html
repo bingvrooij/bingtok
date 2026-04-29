@@ -3760,7 +3760,21 @@ async function saveMeedoenData(completed = false) {
 }
 
 function gatherStats() {
-  try { return loadStats(); } catch { return {}; }
+  try {
+    const raw = loadStats();
+    const normalized = {};
+    for (const [name, s] of Object.entries(raw)) {
+      normalized[name] = {
+        ...s,
+        likes:    Array.isArray(s.likes)    ? s.likes.length    : (s.likes    || 0),
+        saves:    Array.isArray(s.saves)    ? s.saves.length    : (s.saves    || 0),
+        comments: Array.isArray(s.comments) ? s.comments.length : (s.comments || 0),
+        commentTexts: Array.isArray(s.comments) ? s.comments.map(c => typeof c === 'string' ? c : c.text || '') : [],
+        watchSec: s.watchSec || (Array.isArray(s.watchSessions) ? s.watchSessions.reduce((a,b)=>a+b,0) : 0),
+      };
+    }
+    return normalized;
+  } catch { return {}; }
 }
 
 let selectedGender = '';
