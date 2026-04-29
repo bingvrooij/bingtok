@@ -24,9 +24,35 @@ VIDEO_EXTS = {'.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v', '.MP4', '.MOV', '
 _rooms      = {}   # room_id -> {config, events, clients}
 _public_url = None # set by cloudflared tunnel detection
 
+ROOMS_DIR = os.path.join(BASE_DIR, 'uploads', '_rooms')
+os.makedirs(ROOMS_DIR, exist_ok=True)
+
+def _room_config_path(room_id):
+    return os.path.join(ROOMS_DIR, f'{room_id}.json')
+
+def _save_room_config(room_id, config):
+    try:
+        with open(_room_config_path(room_id), 'w') as f:
+            json.dump(config, f)
+    except Exception:
+        pass
+
+def _load_room_config(room_id):
+    try:
+        with open(_room_config_path(room_id)) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def _delete_room_config(room_id):
+    try:
+        os.remove(_room_config_path(room_id))
+    except Exception:
+        pass
+
 def get_room(room_id):
     if room_id not in _rooms:
-        _rooms[room_id] = {'config': None, 'events': [], 'clients': []}
+        _rooms[room_id] = {'config': _load_room_config(room_id), 'events': [], 'clients': []}
     return _rooms[room_id]
 
 def room_broadcast(room_id, event_data):
@@ -388,6 +414,7 @@ setInterval(() => location.reload(), 15000);
             for wf in room['clients']:
                 try: wf.flush()
                 except: pass
+            _delete_room_config(room_id)
             del _rooms[room_id]
             self.send_json({'ok': True})
             return
@@ -424,6 +451,7 @@ setInterval(() => location.reload(), 15000);
             room = get_room(room_id)
             room['config'] = json.loads(self.read_body())
             room['events'] = []
+            _save_room_config(room_id, room['config'])
             self.send_json({'ok': True})
 
         elif path == '/api/event':
@@ -448,6 +476,7 @@ setInterval(() => location.reload(), 15000);
             room = get_room(room_id)
             room['config'] = None
             room['events'] = []
+            _delete_room_config(room_id)
             room_broadcast(room_id, {'type': 'reset'})
             self.send_json({'ok': True})
 
