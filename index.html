@@ -700,6 +700,7 @@
     <h2>Bing<span>Tok</span> — Configure Test</h2>
     <div class="setup-header-actions">
       <button class="pill-btn outline sm" onclick="goToUpload()">← Back</button>
+      <button class="pill-btn outline sm" onclick="publishPublicTest()" title="Publiceer als publieke /meedoen link">🌐 Publiceer</button>
       <button class="pill-btn sm" onclick="startTest()">▶ Start Test</button>
     </div>
   </div>
@@ -796,6 +797,31 @@
     </div>
   </div>
   <div id="feed"></div>
+</div>
+
+<!-- SCREEN — Meedoen (publieke test welkomstpagina) -->
+<div id="screen-meedoen" style="display:none;position:fixed;inset:0;background:#0e0e0e;z-index:200;overflow-y:auto;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px;gap:0">
+  <div style="max-width:420px;width:100%;display:flex;flex-direction:column;gap:20px">
+    <div class="logo" style="font-size:2rem;text-align:center">Bing<span>Tok</span></div>
+    <div style="background:#1a1a1a;border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:16px">
+      <p style="color:#eee;font-size:1.05rem;line-height:1.6;margin:0">
+        👋 Hi! Leuk dat je mee wil doen!<br><br>
+        In deze test ga je <strong style="color:#fe2c55">Doomscrollen!</strong><br>
+        Scroll lekker totdat je ziet dat de test is afgelopen.<br><br>
+        De test duurt ongeveer <strong>8–10 minuten.</strong><br><br>
+        Veel plezier! 🎉
+      </p>
+      <hr style="border:none;border-top:1px solid #2a2a2a;margin:4px 0">
+      <label style="color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:.5px">Jouw naam</label>
+      <input id="meedoen-naam" type="text" placeholder="Vul je naam in…"
+        style="padding:12px 14px;border-radius:10px;border:1px solid #333;background:#111;color:#eee;font-size:1rem;outline:none;width:100%;box-sizing:border-box">
+      <button onclick="startMeedoen()"
+        style="padding:14px;background:#fe2c55;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:1rem;font-weight:700;margin-top:4px">
+        Start de test 🚀
+      </button>
+      <p id="meedoen-error" style="color:#fe2c55;font-size:.85rem;display:none;margin:0">Vul eerst je naam in!</p>
+    </div>
+  </div>
 </div>
 
 <!-- SCREEN 5 — Waiting (phone, before config is ready) -->
@@ -955,8 +981,10 @@
 // ═══════════════════════════════════
 // MODE DETECTION
 // ═══════════════════════════════════
-const MODE = location.pathname === '/test'  ? 'test'
-           : location.pathname === '/admin' ? 'admin'
+const MODE = location.pathname === '/test'     ? 'test'
+           : location.pathname === '/admin'    ? 'admin'
+           : location.pathname === '/meedoen'  ? 'meedoen'
+           : location.pathname === '/testing'  ? 'setup'
            : 'setup';
 
 
@@ -1179,6 +1207,7 @@ const SCREENS = {
   waiting:     document.getElementById('screen-waiting'),
   preload:     document.getElementById('screen-preload'),
   participant: document.getElementById('screen-participant'),
+  meedoen:     document.getElementById('screen-meedoen'),
 };
 
 function showScreen(name) {
@@ -3312,6 +3341,24 @@ function startTest() {
   setTimeout(() => inp.focus(), 60);
 }
 
+async function publishPublicTest() {
+  if (!videos.length) { alert('Voeg eerst videos toe.'); return; }
+  const config = {
+    testName: 'Publieke test',
+    publishedAt: new Date().toISOString(),
+    videos: videos.map(v => ({
+      url: v.url, name: v.name, originalName: v.originalName || v.name,
+      username: v.username, pfpDataUrl: v.pfpDataUrl || null,
+      description: v.description,
+      likes: v.likes, comments: v.comments, shares: v.shares, saves: v.saves,
+      isFiller: v.isFiller || false, isTrackedFiller: v.isTrackedFiller || false,
+    })),
+  };
+  await fetch('/api/public-config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(config) });
+  const link = `${location.origin}/meedoen`;
+  alert(`✅ Publieke test gepubliceerd!\n\nDeel deze link:\n${link}`);
+}
+
 async function confirmStartTest() {
   const inp = document.getElementById('test-name-input');
   testName = inp.value.trim() || `Test ${new Date().toLocaleDateString()}`;
@@ -3343,6 +3390,11 @@ async function confirmStartTest() {
 // SAVE REPORT (phone local download)
 // ═══════════════════════════════════
 function showSaveModal() {
+  // Auto-save for public test participants
+  if (MODE === 'meedoen' && _meedoenParticipantId) {
+    clearInterval(_meedoenSaveInterval);
+    saveMeedoenData(true);
+  }
   endWatch(currentIdx, false);
   const summary = document.getElementById('save-summary');
   const all = loadStats();
@@ -3453,8 +3505,67 @@ document.addEventListener('keydown', e => {
     initAdmin();
   } else if (MODE === 'test') {
     boot();
+  } else if (MODE === 'meedoen') {
+    showScreen('meedoen');
   }
 })();
+
+// ═══════════════════════════════════
+// MEEDOEN (publieke test)
+// ═══════════════════════════════════
+let _meedoenParticipantId = null;
+let _meedoenName = '';
+let _meedoenSaveInterval = null;
+
+async function startMeedoen() {
+  const naam = document.getElementById('meedoen-naam').value.trim();
+  const err  = document.getElementById('meedoen-error');
+  if (!naam) { err.style.display = 'block'; return; }
+  err.style.display = 'none';
+  _meedoenName = naam;
+  _meedoenParticipantId = 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6);
+
+  // Fetch public config
+  let cfg;
+  try {
+    const r = await fetch('/api/public-config');
+    if (!r.ok) throw new Error('no config');
+    cfg = await r.json();
+  } catch {
+    alert('Er is geen actieve test op dit moment. Probeer het later opnieuw.');
+    return;
+  }
+
+  testName     = cfg.testName || 'Publieke test';
+  testStartedAt = new Date();
+  videos = cfg.videos.map(v => ({ ...v, _liked: false, _saved: false, _vid: null, _likeBtn: null, _savBtn: null }));
+
+  clearSessionState();
+  buildFeed();
+  showScreen('feed');
+
+  // Auto-save every 30s
+  _meedoenSaveInterval = setInterval(saveMeedoenData, 30000);
+}
+
+async function saveMeedoenData(completed = false) {
+  if (!_meedoenParticipantId) return;
+  const data = {
+    id: _meedoenParticipantId,
+    name: _meedoenName,
+    completedAt: completed ? new Date().toISOString() : null,
+    savedAt: new Date().toISOString(),
+    completed,
+    stats: gatherStats(),
+  };
+  try {
+    await fetch('/api/participant', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+  } catch {}
+}
+
+function gatherStats() {
+  try { return loadStats(); } catch { return {}; }
+}
 
 let selectedGender = '';
 

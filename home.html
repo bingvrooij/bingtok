@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BingTok</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0e0e0e;
+  color: #eee;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.card {
+  background: #1a1a1a;
+  border-radius: 20px;
+  padding: 40px 32px;
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+}
+.logo { font-size: 2.2rem; font-weight: 900; color: #eee; }
+.logo span { color: #fe2c55; }
+.subtitle { color: #888; font-size: .95rem; line-height: 1.6; }
+.btn {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  background: #fe2c55;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity .15s;
+}
+.btn:hover { opacity: .88; }
+.btn.outline {
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+  font-size: .85rem;
+  padding: 12px;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Bing<span>Tok</span></div>
+  <p class="subtitle">
+    👋 Hi! Leuk dat je mee wilt doen!<br><br>
+    Doe mee aan onze video test en help ons betere content te maken.
+  </p>
+  <a href="/meedoen" class="btn">Meedoen aan de test 🚀</a>
+  <a href="/testing" class="btn outline">Admin / Onderzoeker</a>
+</div>
+</body>
+</html>

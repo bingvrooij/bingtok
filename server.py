@@ -55,6 +55,39 @@ def get_room(room_id):
         _rooms[room_id] = {'config': _load_room_config(room_id), 'events': [], 'clients': []}
     return _rooms[room_id]
 
+PUBLIC_CONFIG_PATH    = os.path.join(BASE_DIR, 'uploads', '_public_config.json')
+PARTICIPANTS_DIR      = os.path.join(BASE_DIR, 'uploads', '_participants')
+os.makedirs(PARTICIPANTS_DIR, exist_ok=True)
+
+def load_public_config():
+    try:
+        with open(PUBLIC_CONFIG_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def save_public_config(config):
+    with open(PUBLIC_CONFIG_PATH, 'w') as f:
+        json.dump(config, f)
+
+def save_participant(data):
+    pid = data.get('id', uuid.uuid4().hex)
+    path = os.path.join(PARTICIPANTS_DIR, f'{pid}.json')
+    with open(path, 'w') as f:
+        json.dump(data, f, ensure_ascii=False)
+    return pid
+
+def load_all_participants():
+    results = []
+    for fname in sorted(os.listdir(PARTICIPANTS_DIR)):
+        if fname.endswith('.json'):
+            try:
+                with open(os.path.join(PARTICIPANTS_DIR, fname)) as f:
+                    results.append(json.load(f))
+            except Exception:
+                pass
+    return results
+
 def room_broadcast(room_id, event_data):
     room = get_room(room_id)
     msg  = ('data: ' + json.dumps(event_data) + '\n\n').encode()
@@ -189,7 +222,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = unquote(urlparse(self.path).path)
         room_id = self._room_id()
 
-        if path in ('/', '/test', '/admin'):
+        if path == '/':
+            self.send_file(os.path.join(BASE_DIR, 'home.html'),
+                           'text/html; charset=utf-8')
+            return
+
+        if path in ('/test', '/admin', '/meedoen', '/testing'):
             self.send_file(os.path.join(BASE_DIR, 'index.html'),
                            'text/html; charset=utf-8')
             return
@@ -238,6 +276,7 @@ button{padding:10px;background:#fe2c55;color:#fff;border:none;border-radius:8px;
 </tr>'''
             if not rows:
                 rows = '<tr><td colspan="5" style="color:#666;text-align:center;padding:24px">Geen actieve sessies</td></tr>'
+            n_participants = len(load_all_participants())
             body = f'''<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>BingTok Rooms</title>
 <style>body{{background:#111;color:#eee;font-family:sans-serif;padding:32px;margin:0}}
@@ -250,6 +289,11 @@ a{{color:#fe2c55;text-decoration:none}}code{{background:#222;padding:2px 6px;bor
 <h2>BingTok — Actieve Sessies</h2>
 <table><thead><tr><th>Room ID</th><th>Sessienaam</th><th>Events</th><th>Status</th><th>Acties</th></tr></thead>
 <tbody>{rows}</tbody></table>
+<h3 style="color:#fe2c55;margin-top:32px;font-size:.9rem;text-transform:uppercase;letter-spacing:.5px">Publieke test ({n_participants} deelnemers)</h3>
+<div style="display:flex;gap:12px;flex-wrap:wrap">
+  <a href="/meedoen" target="_blank" style="background:#1a1a1a;padding:10px 16px;border-radius:8px;color:#eee;font-size:.85rem">🔗 /meedoen link</a>
+  <a href="/api/participants/export" style="background:#fe2c55;padding:10px 16px;border-radius:8px;color:#fff;font-size:.85rem;font-weight:700">⬇ Download CSV</a>
+</div>
 <p class="meta">Vernieuwt automatisch elke 15 seconden &nbsp;·&nbsp; <a href="/rooms">↺ Nu vernieuwen</a> &nbsp;·&nbsp; <a href="/rooms-logout">Uitloggen</a></p>
 <script>
 async function stopRoom(id) {{
@@ -272,6 +316,60 @@ setInterval(() => location.reload(), 15000);
             self.send_header('Location', '/rooms')
             self.send_header('Set-Cookie', 'bingtok_auth=; Path=/; Max-Age=0')
             self.end_headers()
+            return
+
+        if path == '/api/public-config':
+            cfg = load_public_config()
+            if cfg:
+                self.send_json(cfg)
+            else:
+                self.send_json({'error': 'no public test active'}, 404)
+            return
+
+        if path == '/api/participants':
+            cookie_hdr = self.headers.get('Cookie', '')
+            if 'bingtok_auth=1' not in cookie_hdr:
+                self.send_json({'error': 'unauthorized'}, 401); return
+            self.send_json(load_all_participants())
+            return
+
+        if path == '/api/participants/export':
+            cookie_hdr = self.headers.get('Cookie', '')
+            if 'bingtok_auth=1' not in cookie_hdr:
+                self.send_json({'error': 'unauthorized'}, 401); return
+            participants = load_all_participants()
+            # Build CSV
+            import io, csv
+            out = io.StringIO()
+            if participants:
+                # Flat columns: id, name, completedAt, then per-video stats
+                writer = csv.writer(out)
+                all_videos = set()
+                for p in participants:
+                    for v in (p.get('stats') or {}).keys():
+                        all_videos.add(v)
+                all_videos = sorted(all_videos)
+                stat_fields = ['views','watchSec','duration','likes','saves','shares','comments','loops','pauses']
+                header = ['id','name','completedAt']
+                for v in all_videos:
+                    for sf in stat_fields:
+                        header.append(f'{v}_{sf}')
+                writer.writerow(header)
+                for p in participants:
+                    row = [p.get('id',''), p.get('name',''), p.get('completedAt','')]
+                    stats = p.get('stats') or {}
+                    for v in all_videos:
+                        vs = stats.get(v) or {}
+                        for sf in stat_fields:
+                            row.append(vs.get(sf, ''))
+                    writer.writerow(row)
+            csv_bytes = out.getvalue().encode('utf-8-sig')
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/csv; charset=utf-8')
+            self.send_header('Content-Disposition', 'attachment; filename="bingtok-resultaten.csv"')
+            self.send_header('Content-Length', str(len(csv_bytes)))
+            self.end_headers()
+            self.wfile.write(csv_bytes)
             return
 
         if path == '/api/local-ip':
@@ -390,6 +488,18 @@ setInterval(() => location.reload(), 15000);
     def do_POST(self):
         path = unquote(urlparse(self.path).path)
         room_id = self._room_id()
+
+        if path == '/api/public-config':
+            body = json.loads(self.read_body())
+            save_public_config(body)
+            self.send_json({'ok': True})
+            return
+
+        if path == '/api/participant':
+            body = json.loads(self.read_body())
+            pid = save_participant(body)
+            self.send_json({'ok': True, 'id': pid})
+            return
 
         if path == '/rooms-login':
             body = self.read_body().decode('utf-8', errors='replace')
