@@ -820,10 +820,12 @@
         <div class="logo" style="font-size:1.2rem">Bing<span>Tok</span></div>
         <span style="color:#444;font-size:.85rem">— Meedoen resultaten</span>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span id="ma-test-status" style="font-size:.75rem;color:#555"></span>
         <button class="pill-btn outline sm" onclick="meedoenAdminRefresh()">↺ Vernieuwen</button>
         <a href="/api/participants/export" class="pill-btn sm" style="text-decoration:none">⬇ CSV</a>
-        <a href="/publish" class="pill-btn outline sm" style="text-decoration:none;color:#888">Publiceer</a>
+        <button id="ma-stop-btn" class="pill-btn outline sm" onclick="meedoenAdminStopTest()" style="color:#fe2c55;border-color:#fe2c55;display:none">⏹ Stop test</button>
+        <a href="/publish" class="pill-btn outline sm" style="text-decoration:none;color:#555">+ Nieuwe test</a>
       </div>
     </div>
     <!-- Summary tiles -->
@@ -3618,9 +3620,32 @@ async function meedoenAdminRefresh() {
   } catch (e) {
     alert('Kon data niet laden. Ben je ingelogd? (' + e.message + ')'); return;
   }
+  // Check if public test is active
+  try {
+    const r = await fetch('/api/public-config');
+    const stopBtn = document.getElementById('ma-stop-btn');
+    const statusEl = document.getElementById('ma-test-status');
+    if (r.ok) {
+      const cfg = await r.json();
+      if (cfg && cfg.videos) {
+        stopBtn.style.display = '';
+        statusEl.innerHTML = '<span style="width:7px;height:7px;background:#25d167;border-radius:50%;display:inline-block;margin-right:4px"></span>Test actief';
+      }
+    } else {
+      stopBtn.style.display = 'none';
+      statusEl.textContent = 'Geen actieve test';
+    }
+  } catch {}
   meedoenAdminRenderSummary();
   meedoenAdminRenderVideos();
   meedoenAdminRenderParticipants();
+}
+
+async function meedoenAdminStopTest() {
+  if (!confirm('Publieke test stoppen? Deelnemers kunnen dan niet meer meedoen.')) return;
+  await fetch('/api/public-config/stop', { method: 'POST' });
+  document.getElementById('ma-stop-btn').style.display = 'none';
+  document.getElementById('ma-test-status').textContent = 'Test gestopt';
 }
 
 function meedoenAdminRenderSummary() {
@@ -3698,6 +3723,21 @@ function meedoenAdminRenderParticipants() {
   }).join('') : `<div style="padding:24px;color:#444;text-align:center">Geen deelnemers gevonden</div>`;
 }
 
+async function meedoenAutoStop(reden) {
+  if (!_meedoenParticipantId) return;
+  clearInterval(_meedoenSaveInterval);
+  _meedoenSaveInterval = null;
+  await saveMeedoenData(true);
+  _meedoenParticipantId = null;
+  // Toon afsluit scherm
+  document.getElementById('feed').innerHTML = `
+    <div style="position:fixed;inset:0;background:#0e0e0e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;text-align:center;z-index:999">
+      <div class="logo" style="font-size:2rem">Bing<span>Tok</span></div>
+      <p style="color:#eee;font-size:1.1rem;font-weight:700">Bedankt voor je deelname! 🎉</p>
+      <p style="color:#666;font-size:.9rem">Je sessie is automatisch opgeslagen.<br>(Reden: ${reden})</p>
+    </div>`;
+}
+
 function meedoenDownloadJson(data) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -3742,6 +3782,29 @@ async function startMeedoen() {
 
   // Auto-save every 30s
   _meedoenSaveInterval = setInterval(saveMeedoenData, 30000);
+
+  // Auto-stop na 5 minuten inactiviteit of pagina verbergen
+  let _inactivityTimer = null;
+  const INACTIVITY_MS = 5 * 60 * 1000;
+
+  function resetInactivityTimer() {
+    clearTimeout(_inactivityTimer);
+    _inactivityTimer = setTimeout(() => meedoenAutoStop('inactiviteit'), INACTIVITY_MS);
+  }
+
+  ['scroll', 'touchstart', 'touchmove', 'click'].forEach(ev =>
+    document.addEventListener(ev, resetInactivityTimer, { passive: true }));
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Pagina verlaten — stop na 30 seconden als ze niet terugkomen
+      _inactivityTimer = setTimeout(() => meedoenAutoStop('pagina verlaten'), 30000);
+    } else {
+      resetInactivityTimer();
+    }
+  });
+
+  resetInactivityTimer();
 }
 
 async function saveMeedoenData(completed = false) {
