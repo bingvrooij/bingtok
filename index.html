@@ -700,8 +700,8 @@
     <h2>Bing<span>Tok</span> — Configure Test</h2>
     <div class="setup-header-actions">
       <button class="pill-btn outline sm" onclick="goToUpload()">← Back</button>
-      <button class="pill-btn outline sm" onclick="publishPublicTest()" title="Publiceer als publieke /meedoen link">🌐 Publiceer</button>
-      <button class="pill-btn sm" onclick="startTest()">▶ Start Test</button>
+      <button id="btn-publiceer" class="pill-btn outline sm" onclick="publishPublicTest()" style="display:none">🌐 Publiceer</button>
+<button class="pill-btn sm" onclick="startTest()">▶ Start Test</button>
     </div>
   </div>
   <div class="setup-body" id="setup-cards"></div>
@@ -981,11 +981,20 @@
 // ═══════════════════════════════════
 // MODE DETECTION
 // ═══════════════════════════════════
-const MODE = location.pathname === '/test'     ? 'test'
-           : location.pathname === '/admin'    ? 'admin'
-           : location.pathname === '/meedoen'  ? 'meedoen'
-           : location.pathname === '/testing'  ? 'setup'
+const MODE = location.pathname === '/test'          ? 'test'
+           : location.pathname === '/admin'         ? 'admin'
+           : location.pathname === '/meedoen'       ? 'meedoen'
+           : location.pathname === '/testing'       ? 'setup'
+           : location.pathname === '/meedoen-admin' ? 'meedoen-admin'
+           : location.pathname === '/publish'       ? 'publish'
            : 'setup';
+
+if (MODE === 'publish') {
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('btn-publiceer');
+    if (btn) btn.style.display = '';
+  });
+}
 
 
 // Participant ID — unique per browser tab, persists through the test session
@@ -3507,8 +3516,62 @@ document.addEventListener('keydown', e => {
     boot();
   } else if (MODE === 'meedoen') {
     showScreen('meedoen');
+  } else if (MODE === 'meedoen-admin') {
+    await bootMeedoenAdmin();
+  } else if (MODE === 'publish') {
+    showScreen('upload');
   }
 })();
+
+// ═══════════════════════════════════
+// MEEDOEN-ADMIN (publieke test dashboard)
+// ═══════════════════════════════════
+async function bootMeedoenAdmin() {
+  showScreen('dashboard');
+  // Override the dashboard header
+  const hdr = document.querySelector('#screen-dashboard .dash-header');
+  if (hdr) hdr.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="logo" style="font-size:1.1rem">Bing<span>Tok</span></div>
+      <span style="color:#555;font-size:.85rem">— Meedoen resultaten</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="pill-btn outline sm" onclick="meedoenAdminRefresh()">↺ Vernieuwen</button>
+      <a href="/api/participants/export" class="pill-btn sm" style="text-decoration:none">⬇ CSV</a>
+    </div>`;
+  // Hide the import section — data comes from server
+  const importEl = document.getElementById('dash-import-area');
+  if (importEl) importEl.style.display = 'none';
+  await meedoenAdminRefresh();
+}
+
+async function meedoenAdminRefresh() {
+  try {
+    const participants = await fetch('/api/participants').then(r => r.json());
+    // Clear existing sessions and reload
+    _dashSessions.length = 0;
+    participants.forEach(p => {
+      if (p.stats && Object.keys(p.stats).length) {
+        _dashSessions.push({
+          testName: p.name || 'Deelnemer',
+          savedAt:  p.savedAt || p.completedAt,
+          stats:    p.stats,
+        });
+      }
+    });
+    renderDashboard();
+    // Update loaded tags label
+    const list = document.getElementById('dash-loaded-list');
+    if (list) {
+      const tag = document.createElement('div');
+      tag.className = 'dash-tag';
+      tag.innerHTML = `<span>${_dashSessions.length} deelnemers geladen</span>`;
+      list.prepend(tag);
+    }
+  } catch (e) {
+    alert('Kon data niet laden. Ben je ingelogd? (' + e.message + ')');
+  }
+}
 
 // ═══════════════════════════════════
 // MEEDOEN (publieke test)
