@@ -3331,6 +3331,7 @@ async function confirmStartTest() {
     })),
   };
 
+  await ensureRoom();  // guarantee _roomId is set before posting config
   await postConfig(config);
   _adminConfig = config;
 
