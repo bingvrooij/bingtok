@@ -545,7 +545,7 @@ button{padding:10px;background:#fe2c55;color:#fff;border:none;border-radius:8px;
             self.send_response(302)
             self.send_header('Location', '/publish')
             if pw == 'BingTokAdmin!Fantasm':
-                self.send_header('Set-Cookie', 'bingtok_auth=1; Path=/; HttpOnly; SameSite=Strict')
+                self.send_header('Set-Cookie', 'bingtok_auth=1; Path=/; HttpOnly; SameSite=Lax; Secure')
             self.end_headers()
             return
 
@@ -556,7 +556,7 @@ button{padding:10px;background:#fe2c55;color:#fff;border:none;border-radius:8px;
             self.send_response(302)
             self.send_header('Location', '/meedoen-admin')
             if pw == 'BingTokAdmin!Fantasm':
-                self.send_header('Set-Cookie', 'bingtok_auth=1; Path=/; HttpOnly; SameSite=Strict')
+                self.send_header('Set-Cookie', 'bingtok_auth=1; Path=/; HttpOnly; SameSite=Lax; Secure')
             self.end_headers()
             return
 
@@ -579,7 +579,7 @@ button{padding:10px;background:#fe2c55;color:#fff;border:none;border-radius:8px;
             if pw == 'BingTokAdmin!Fantasm':
                 self.send_response(302)
                 self.send_header('Location', '/rooms')
-                self.send_header('Set-Cookie', 'bingtok_auth=1; Path=/; HttpOnly; SameSite=Strict')
+                self.send_header('Set-Cookie', 'bingtok_auth=1; Path=/; HttpOnly; SameSite=Lax; Secure')
                 self.end_headers()
             else:
                 self.send_response(302)
